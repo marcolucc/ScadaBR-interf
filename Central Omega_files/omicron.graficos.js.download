@@ -1,0 +1,1377 @@
+Omicron.graficos = {}
+
+Omicron.graficos = (function() {
+    var lugar = '#vista';
+    var pre = 'grafico_';
+    var graficosTiempo = [];
+    var graficosTiempoPrevio = [];
+    var datosTiempo = [];
+    var limitesPunto = [];
+    // Permite guardar los puntos cuando se consulta el historico de un punto
+    var historicoPuntosGrafico = [];
+    var historicoPunto = null;
+    var historicoVentana = null;
+    var historicoDesde = null;
+    var historicoEsGps = false;
+    // Guarda la instancia de flot chart
+    var flotCharPunto = null;
+    var flotCharPuntoHistorico = null;
+    var flotCharPuntoPrevio = null;
+    var datosGraficadosHistorico = null;
+    var popupEventosGeneralesAbierto = false;
+    var popupIdVolverAbril = null;
+    // Color del plot selection
+    var selectionColor = '#000000';
+    // Crea la capa del dispotivo, despues lo adiciona al contenedor
+    // tipo_grafico_id -> Seria igual a tiempo_id del punto
+    /*var crearCapa = function(tipo_grafico, id, config, tipo, grupo) {
+        var tipo_grafico_id = tipo_grafico + '_' + id;
+        crearCapaGrupo(grupo);
+        if (jQuery("#" + pre + tipo_grafico_id).length == 0) {
+            if (tipo == 'display') {
+                //jQuery(lugar).append('<div id="' + pre + id +'" class="ui-widget-content" style="width:50px;height:30px;" ><div id="contenido_'+ id +'" style="'+ config.style +'"></div></div>');
+                jQuery("#grupo_" + grupo).append('<div id="' + pre + tipo_grafico_id + '" class="ui-widget-content" style="' +
+                        config.style + '" title="' + Omicron.labelsControles()[id] + '"><div id="contenido_' + tipo_grafico_id + '" >Sin Dato</div></div>');
+                jQuery("#" + pre + id).resizable({
+                 minHeight: 30,
+                 minWidth: 50
+                 });
+            }
+            if (tipo == 'html') {
+                var html = config.html
+                if (config.html === '{{= nombre_punto}}') {
+                    html = Omicron.labelsControles()[ tipo_grafico_id.substring(5) ];
+                }
+                jQuery("#grupo_" + grupo).append('<div id="' + pre + tipo_grafico_id + '" style="' + config.style + '">' + html + '</div>');
+            }
+
+            if (tipo == 'tiempo') {
+                jQuery("#grupo_" + grupo).append('<div id="' + pre + tipo_grafico_id + '" style="' + config.style + '"></div>');
+                jQuery("#grupo_" + grupo).append('<div style="" id="' + pre + 'historico_' + id +
+                        '"><input type="button" value="Consulta historico" data-historico="true" data-historico-punto="' + id
+                        + '" title="' + Omicron.labelsControles()[id] + '" data-role="button" data-inline="true" data-theme="b" data-mini="true"  /></div>');
+                eventAbrirPopup();
+                //jQuery("input[data-historico='true']").draggable();
+
+            }
+
+            //jQuery("#" + pre + tipo_grafico_id).draggable();
+
+            Omicron.render();
+        }
+    };*/
+    /*crearCapaGrupo = function(grupo) {
+        if (jQuery("#grupo_" + grupo).length == 0) {
+            jQuery(lugar).append('<div id="grupo_' + grupo + '" class="dispositivo" style="overflow:hidden"></div>');
+        }
+    };*/
+    // Verifica si el dispositovo se encuentra definido.
+    var existeDispositivoEnDatosGraficos = function(id) {
+        if (Omicron.datosGraficos()[id] == undefined) {
+            console.log("El dispositivo (" + id + ") no se encuentra definido");
+            return false;
+        }
+        return true;
+    };
+    // Permite identificar los tipos de graficos de los dispositivos
+    var tiposGraficosDispositivo = function(id, grupo) {
+        if (existeDispositivoEnDatosGraficos(id)) {
+            var dispositivo = Omicron.datosGraficos()[id];
+            // Recorre el tipo de dispositivo adicionado al control.
+            jQuery.each(Omicron.tiposGraficos()[dispositivo.tipo], function(c, v) {
+                //tiempo_1
+                crearCapa(c, id, v, c, grupo);
+                if (c === 'tiempo') {
+                    tiempo(id);
+                }
+                // display_1
+                if (c === 'display') {
+                    display(id);
+                    historico(id);
+                }
+                if (c === 'html') {
+                    html(id);
+                }
+            })
+        }
+    }
+    var html = function(id) {
+
+    }
+    var historico = function(id) {
+
+    };
+    var tooltipGrafico = function(item) {
+    	if (item) {
+    		 
+            var x = item.datapoint[0].toFixed(2),
+            y = item.datapoint[1].toFixed(2);
+            var label = item.series.label == undefined ? '' : item.series.label;    
+            
+
+            //jQuery("#tooltip").html(label + ': ' + y + ' detectado a las 22:50')
+            jQuery("#tooltip").html(y)
+                .css({top: item.pageY+5, left: item.pageX+5})
+                .fadeIn(200);
+        } else {
+        	jQuery("#tooltip").hide();
+        }
+    };
+
+    var tiempo = function(punto, donde) {
+
+        if (datosTiempo[ punto ] === undefined) {
+            datosTiempo[ punto ] = [];
+            limitesPunto[ punto ] = [];
+        }
+       
+        try {
+        	var opciones = {
+        			series : {
+                		lines : {
+                			lineWidth : 1
+                		}
+                	},
+                	crosshair: {
+                        mode: "x"
+                    },
+                    grid: { hoverable: true, clickable: true },
+                    xaxis: {
+                        mode: "time",
+                        timeformat: "%h:%M",
+                        tickLength : 5,
+                        ticks : 6,
+                        timezone: Omicron.getZonaHoraria()
+                        //minTickSize: [1, "hour"]
+
+                    },
+                    selection  : {
+                		mode : 'x',
+                		color : selectionColor
+                		
+                    },
+                    colors : Omicron.getColoresLienas()['lineas']
+            };
+            graficosTiempo[punto] = jQuery.plot(donde, [{
+                    data: [],
+                    lines: {
+                        fill: true
+                    }
+
+                }], opciones);
+            
+            jQuery(donde).bind("plothover", function (event, pos, item) {
+            	tooltipGrafico( item );
+            });
+            
+            var tipoEventoGrafico1 = true;
+            jQuery(donde).bind("plotselected", function (event, ranges) {
+            	tipoEventoGrafico1 = true;
+            	jQuery.plot(donde, graficosTiempo[punto].getData(), jQuery.extend(true, {}, opciones, {
+    				xaxis: {
+    					min: ranges.xaxis.from,
+    					max: ranges.xaxis.to
+    				}
+    			}));
+            	if( graficosTiempoPrevio[punto] !== undefined ){
+            		graficosTiempoPrevio[punto].setSelection(ranges, true);
+            	}
+           	
+
+    		});
+            jQuery(donde).bind("plotclick", function (event, ranges) {
+            	if(tipoEventoGrafico1){
+            		tipoEventoGrafico1 = false;
+            		return;
+            	}
+            	var axes =  graficosTiempo[punto].getAxes();
+            	
+            	jQuery.plot(donde, graficosTiempo[punto].getData(), jQuery.extend(true, {}, opciones, {
+    				xaxis: {
+    					min: axes.xaxis.datamin,
+    					max: axes.xaxis.datamax
+    				}
+    			}));
+            	
+            	
+            });
+            
+            opciones_previo = {};
+            jQuery.extend( opciones_previo, opciones );
+
+            
+            var dondeCorte = donde.split("_");      
+            
+            var previo = dondeCorte[0] + '_previo_' + dondeCorte[1] + ( dondeCorte.length === 3 ? "_" + dondeCorte[2] : ''  );
+            
+            
+            if( jQuery(previo).length ){
+                graficosTiempoPrevio[punto] = jQuery.plot(previo, [{
+                    data: [],
+                    lines: {
+                        fill: true
+                    }
+
+                }], jQuery.extend(opciones_previo, {
+                	grid: { clickable: true },
+                	yaxis: {
+        				ticks: [],
+        				min: 0,
+        				autoscaleMargin: 0.1
+        			}
+        			
+        			
+                }));
+            	
+            }
+            // TipoEvento es usado para identificar que evento ocurre si plotclick o plotselected
+            // El API al parecer ejecuta los dos es una solucion para que ejecute uno o el otro y no ambos
+            var tipoEvento = false;
+            jQuery(previo).bind("plotselected", function (event, ranges) {
+            	tipoEvento = true;
+            	graficosTiempo[punto].setSelection(ranges);
+            	
+    		});
+            jQuery(previo).bind("plotclick", function (event, ranges) {
+            	if(tipoEvento){
+            		tipoEvento = false;
+            		return;
+            	}
+            	var axes =  graficosTiempoPrevio[punto].getAxes();
+            	
+            	jQuery.plot(donde, graficosTiempo[punto].getData(), jQuery.extend(true, {}, opciones, {
+    				xaxis: {
+    					min: axes.xaxis.datamin,
+    					max: axes.xaxis.datamax
+    				}
+    			}));
+            	
+    		}); 
+        //jQuery("#"  + pre + 'tiempo_' + id).resizable();
+        } catch (e) {
+            console.log("No fue posible crear la grafica de tiempo");
+            console.log(e);
+        }
+    };
+    var actualizarTiempoLimites = function(id, tiempo) {
+    	
+    	
+    	if(Omicron.getLimites() == null){
+    		return;
+    	}
+        var graficos = [];
+        // Identifica la cantidad de limites de una grafico
+        if (Omicron.getLimites()[ id ] != undefined) {
+            var limites = Omicron.getLimites()[ id ];
+            for(var n in limites){
+            	if( limites[ n ].valor === undefined ){
+            		continue;
+            	}
+            	if( jQuery.isArray(tiempo) ){
+            		graficos.push({
+	                    data: limitesPunto[ id ][ n ],
+	                    color: Omicron.getColoresLienas()['limites']
+	                });
+            		continue;
+            	}
+            	//console.log('Tiempooooo', tiempo, jQuery.isArray(tiempo));
+            	if (jQuery.isArray(limitesPunto[ id ][ n ]) == false) {
+                    limitesPunto[ id ][ n ] = [];
+                }
+            	//console.log('testt', [tiempo, limites[ n ].valor], limitesPunto[ id ][ n ].length, jQuery.isArray(tiempo) );
+            	limitesPunto[ id ][n ].push([tiempo, limites[ n ].valor]);
+            	graficos.push({
+                    data: limitesPunto[ id ][ n ],
+                    color: Omicron.getColoresLienas()['limites']
+                });
+            	
+            	
+            	//console.log( limites[ n ].valor );
+            }
+
+        }
+        //console.log( 'graficos', graficos );
+        return graficos;
+    	
+    };
+    var prepararLineaTiempo = function(id, data) {
+        return {
+            label: Omicron.labelsControles()[id],
+            data: data
+
+        };
+        //color: '#3d779d'
+    };
+    // Permite eliminar los labels de las graficas de tiempo.
+    var suprimirLabels = function( graficos ) {
+    	var graficosSinLabels = [];
+    	for( var n in graficos ){
+    		var propiedades = new Object();
+    		jQuery.each( graficos[ n ], function(c, v){
+    			if( c != 'label'  ) {
+    				propiedades[ c ] = v;
+    			}
+    		} );
+    		graficosSinLabels.push(propiedades);
+    	}
+    	return 	graficosSinLabels;
+    	
+    };
+    var actualizarTiempo = function(id, graficos) {
+        id = identificarDispositivoPuntos(id)[ 1 ];
+        if (graficos.length == 0 || graficosTiempo[ id ] === undefined) {
+            return;
+        }
+        graficosTiempo[id].setData(graficos);
+        graficosTiempo[id].setupGrid();
+        graficosTiempo[id].draw();
+        
+        try{
+        	// TODO: Arreglar para que verifique y no entre al catch
+        	if( graficosTiempoPrevio[id] !== undefined){
+        		graficosTiempoPrevio[id].setData(suprimirLabels( graficos ));
+                graficosTiempoPrevio[id].setupGrid();
+                graficosTiempoPrevio[id].draw();
+        		
+        	}
+        	
+        	
+        } catch( e  ) {
+        	console.log("Ocurrio un error generando el tiempo previo");
+        	console.log( e );
+        }
+    };
+    var display = function(id) {
+
+    };
+    
+    
+    //jQuery("input[data-puntos='68']")
+    
+    
+    var actualizarDisplay = function(id, valor) {
+    	if( isNaN( valor ) ){
+    		valor = null;
+    	}
+
+        try {
+        	//var display = jQuery("input[id*='contenido_display_"+ id +"']");
+        	var display = jQuery("#contenido_display_" + id);
+            if (display.length != 0) {
+                // Si llega un valor vacio, dejamos el valor anterior
+                if (valor != null) {
+                	var nuevoValor = redondear(valor);                	
+                	var valorAnterior = display.val();
+                	
+                	if( display.data('valorOriginal') == undefined ){
+                		display.data('valorOriginal', nuevoValor);
+                	}
+                	if( display.data('desdeTeclado') && nuevoValor == display.data('valorOriginal')  ){
+                		return;
+                	} else {
+                		display.data('valorOriginal', nuevoValor);
+                		display.data('desdeTeclado', false);
+                	}
+                	
+                	//console.log('tipo', display.attr("type"), nuevoValor );
+                	
+                	if(display.is('select')){
+                		display.val( nuevoValor ).change();
+                	} else if( display.attr("type") == "number" ) {
+                		display.val( nuevoValor ).slider("refresh");
+                	} else {
+                		display.val( nuevoValor );
+                	}
+                	
+                                        
+                    display.data('nuevoValor', nuevoValor);
+                    
+                    if( valorAnterior ==  nuevoValor){
+                    	display.css({'color' : '#6aa06e'});
+                    }
+                    
+                    /*var cid = display.data('cid');
+                    
+                    if( cid !== undefined && valorAnterior != nuevoValor ){
+                    	var d = Omicron.accionesCollection.where({cid :  display.data('cid')});
+                        if( d.length > 0 ){
+                        	d[ 0 ].set({valorActual : nuevoValor});
+                        }
+                    }*/
+                    
+                }
+            }
+        } catch (e) {
+            console.log("Ocurrio un error actualizando la grafica de display");
+            console.log(e);
+        }
+    };
+    var actualizarEstados = function(id, valor) {
+        try {
+        	if( valor === null ){
+        		return;
+        	}
+        	var $componente = jQuery("*[data-puntos='"+ id +"'][data-clase='estados']");
+        	if( $componente.length > 0 ) {
+        		if( $componente.data('estados')[ valor ] == undefined ) {
+        			valor = "df";
+        		}
+        		$componente.attr("src",  $componente.data('estados')[ valor ] );
+        		$componente.removeClass('ocultar').addClass('mostrar');
+        		
+        	}
+
+        	
+        } catch (e) {
+            console.log("Ocurrio un error actualizando la grafica de estados");
+            console.log(e);
+        }
+    };
+    var actualizarLabel = function(id, valor) {
+
+        try {
+        	if( valor === null ){
+        		return;
+        	}
+        	var $componente = jQuery("*[data-puntos='"+ id +"'][data-clase='label']");
+        	if( $componente.length > 0 ) {
+        		if( $componente.data('estados')[ valor ] == undefined ) {
+        			valor = "df";
+        		}
+        		$componente.html($componente.data('estados')[ valor ] );
+        		
+        	}
+
+        	
+        } catch (e) {
+            console.log("Ocurrio un error actualizando la grafica de estados");
+            console.log(e);
+        }
+    };
+    var actualizarBotones = function(id, valor) {
+
+        try {
+        	if( valor === null ){
+        		return;
+        	}
+        	var $componente = jQuery("*[data-puntos='"+ id +"'][data-clase='boton']");
+        	if( $componente.length > 0 ) {
+        		if( $componente.data('estados')[ valor ] == undefined ) {
+        			valor = "df";
+        		}
+        		if( $componente.prev("span").length > 0 ){
+        			$componente.prev('span').find('span.ui-btn-text').text($componente.data('estados')[ valor ]); 
+        		}
+        		
+        		$componente.html($componente.data('estados')[ valor ] );
+        		
+        	}
+
+        	
+        } catch (e) {
+            console.log("Ocurrio un error actualizando la grafica de estados");
+            console.log(e);
+        }
+    };    	
+    
+    var identificarDispositivoPuntos = function(punto) {
+        var r = [];
+        try {
+            jQuery("div[data-clase='tiempo'],*[data-clase='estados'],*[data-clase='boton'],*[data-clase='label']").each(function(c, v) {
+            	
+                var puntos = jQuery(this).data("puntos").toString();
+                if (puntos.indexOf(",") !== -1) {
+                    if (jQuery.inArray(punto.toString(), puntos.split(",")) !== -1) {
+                        r.push(this.id);
+                        r.push(puntos);
+                        r.push(jQuery(this).data("clase"));
+                    }
+                } else {
+                    if( parseInt(punto) === parseInt( puntos ) ){
+                        r.push(this.id);
+                        r.push(puntos);
+                        r.push(jQuery(this).data("clase"));
+                    }
+                }
+            });
+        } catch (e) {
+            console.log("Ocurrio un error identificando el Dispositivo Punto");
+            console.log(e);
+        }
+        return r;
+
+    };
+    // Permite unir las lineas de tiempo, cada linea de tiempo se encuentra en arrays.
+    // independientes, este es el punto donde se identifican las lineas que se deben unir
+    var unirLineasTiempo = function(idActual, idActualDatos, lineasIds, tiempoLimites) {
+    	try{
+            var lineas = [];
+            if( lineasIds === undefined ) {
+            	return lineas;
+            }
+            lineasIds = lineasIds.split(",");
+            for (var n in lineasIds) {
+                // si n === idActual significa que los datos que llegaron pongalos
+                // el else indica que busque las lineas que deben pertenecer a ese grafico
+            	var tiempoLinea = prepararLineaTiempo(lineasIds[ n ], datosTiempo[ lineasIds[ n ] ]);
+
+            	lineas.push((lineasIds[ n ] === idActual ? idActualDatos : tiempoLinea));
+            }
+            return lineas;    		
+    	} catch( e ) {
+    		console.log('Ocurrio un error uniendo las lineas de tiempo');
+    		console.log( e );
+    	}
+    	
+    };
+    // Busca todos los limites de un grafico de lineas y lo Une, con la intencion de mostrarlos
+    // todos a la vez
+    var unirLimitesLineas = function(lineasUnidas, tiempo, idLineas){
+    	//return lineasUnidas;
+    	var limitesId = Omicron.getLimites();
+    	for(var id in limitesId){
+    		//console.log('ID', idLineas, id);
+    		var ids = identificarDispositivoPuntos(idLineas);
+    		if(ids.length != 0){
+	    		if( ids[1].split(",").indexOf(id.toString()) >= 0 ){
+	    			// Una linea puede tener mas de un limite, la idea es recorrerlos
+	        		var limitesLinea = actualizarTiempoLimites(id, tiempo);
+	        		for( var n in limitesLinea ){
+	        			lineasUnidas.push(limitesLinea[ n ] );
+	        		}
+	    			
+	    		}
+    		}
+    		
+    		
+    	}
+    	return lineasUnidas;
+    };
+    var eliminarValoresDespuesDeUnTiempo = function(miliPermitidos){
+    	try{
+    		
+    		
+        	var a = new Date();
+    	    for( var n in datosTiempo ){
+
+    	    	var miliPermitidosTiempo = Omicron.getPuntosDesde([ n ], true) || MILISEGUNDOS;
+    	    	
+    	    	//console.log('Prueba', n, miliPermitidos);
+    	    	
+    	    	var copia = [], mayor = false;
+    	    	for(var m in datosTiempo[ n ]) {
+    	    		// Se obtiene el valor del dato actual
+    	    		var milisegundos = datosTiempo[ n ][m][0];	    		
+    	    		mayor =  (a.getTime() - milisegundos) >= miliPermitidosTiempo;
+    	    		
+   	    		
+    	    		if( ! mayor ){
+    	    			copia.push(datosTiempo[ n ][m]);
+    	    		}
+    	    	}
+    	    	if( copia.length > 0 ){
+    	    		datosTiempo[ n ] = copia;
+    	    	}
+    	    	
+    	    }
+    	    
+    	    for(var n in limitesPunto){
+    	    	for(var m in limitesPunto[ n ]) {
+    	    		var copia = [], mayor = false;
+    	    		
+    	    		//console.log('Prueba n', n);
+    	    		
+    	    		for(var v in limitesPunto[ n ][m]){
+    	    			
+    	    			var milisegundos =  limitesPunto[ n ][m][ v ][0];
+    	    			
+    	    			var miliPermitidosLimites = (Omicron.getPuntosDesde([n], true)  ) || MILISEGUNDOS;
+    	    			
+    	    			
+    	    			mayor =  (a.getTime() - milisegundos) >= miliPermitidosLimites;
+    	    			if( ! mayor ){
+    		    			copia.push(limitesPunto[ n ][m][ v ]);
+    		    		}
+    	    		}
+    		    	if( copia.length > 0 ){
+    		    		limitesPunto[ n ][m] = copia;
+    		    	}
+    	    	}
+    	    	
+    	    		
+    	    }    	    
+    		
+    	} catch( e ) {
+    		console.log('Ocurrio un error al intentar borrar valores anteriores');
+    		console.log( e );
+    	}
+    	
+    };
+    var promediarTiempo = function(){
+    	
+    };
+    
+    var cambiosEstado = function(response) {
+    	
+    	if( response.watchListStates !== undefined ) {
+	    	var watchListStates = response.watchListStates;
+	        if (watchListStates.length == 0) {
+	            return;
+	        }
+	        jQuery.each(watchListStates, function(c, v) {
+	        	if (v.value == null || v.time == null) {
+	        		return;
+	        	}
+	            
+	            var dispositivo = identificarDispositivoPuntos(v.id);
+	            if (dispositivo === undefined) {
+	                return;
+	            }
+	            //try {
+	                var tiempo = jQuery("#" + dispositivo[ 0 ]);
+	                if (tiempo.length != 0) {
+	                    
+	                	
+	                        var time = v.time.split(":");
+	                        var fecha = new Date();
+	                        
+	                        //time_anterior = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), parseInt(time[ 0 ]), time[ 1 ], time[ 2 ]);
+	                        
+	                        var fecha = Omicron.getAnio() + "-" + Omicron.getMes() + "-" + Omicron.getDia() +" "+ parseInt(time[ 0 ]) + ":" + time[ 1 ] + ":" + time[ 2 ];
+	              
+	                        time =  moment.tz(v.millisecondsTime, Omicron.getZonaHoraria()).valueOf();
+	                        
+	
+	                        try{
+	                        	datosTiempo[v.id].push([time, Math.round(parseFloat(v.value) * 100) / 100]);
+	                        } catch( e ){
+	                        	console.log('Ocurrio un error asignando valores');
+	                        	console.log( e );
+	                        }                        
+	                        
+	                        
+	                        eliminarValoresDespuesDeUnTiempo();
+	
+	                        var tiempoLinea = prepararLineaTiempo(v.id, datosTiempo[ v.id ]);
+	                        var tiempoLimites = actualizarTiempoLimites(v.id, time);
+	
+	                        
+	                        var lineasUnidas = unirLineasTiempo(v.id, tiempoLinea, dispositivo[1], tiempoLimites);
+	                        var union = unirLimitesLineas(lineasUnidas, time, v.id);
+	                        
+	                        actualizarTiempo(v.id, union);
+	                        
+	                        
+	                    
+	                }
+	            /*} catch (e) {
+	                console.log("Ocurrio un error actualizando la grafica de tiempo");
+	                console.log(e);
+	            }*/
+	            actualizarDisplay(v.id, v.value);
+	            // Para tener mas de 1 display, se realiza rapidamente esta implementacion
+	            actualizarDisplay(v.id +  '_0', v.value);
+	            actualizarDisplay(v.id +  '_1', v.value);
+	            actualizarEstados(v.id, v.value);
+	            actualizarBotones(v.id, v.value);
+	            actualizarLabel(v.id, v.value);
+	            
+	            if( Omicron.gpsViews !== undefined && Omicron.collectionGps !== undefined && Omicron.dsdpCollection !== undefined){
+	            	var p = Omicron.dsdpCollection.where({"id_dp" :  parseInt(v.id)});
+	            	if( p.length > 0 ){
+		            	var e = Omicron.collectionGpsElementos.where({"xid" : p[ 0 ].get('xid')});
+		            	if( e.length > 0 ){
+		            		
+		            		for( var n in e ){
+		            			var modelGps = e[ n ].get('modelGps');
+			            		if( modelGps !== undefined ){
+			            			if(! modelGps.get('actualizar')){
+			            				
+			            				return false;
+			            				
+			            			}
+			            		}
+			            		
+			            		Omicron.collectionGps.actualiazarMapa( v );
+		            		}
+		            		
+		            		
+		            	}
+
+		            }
+	            	
+	            	
+	            	
+	            }
+	            
+	            // Mantiene el valor actualizado para el punto en la collection.
+	            // Se usa en la clase Estados para mostrar algo de acuerdo al valor actual
+	            if(Omicron.dsdpCollection !== undefined){	            	
+	            	var puntoModel = Omicron.dsdpCollection.where({dp : true, id_dp : parseInt(v.id)});
+	            	if( puntoModel.length > 0 ){
+	            		puntoModel[0].set({valor : v.value});
+	            	}
+	            }
+	            
+	            	            	
+	            
+
+	        });
+    	}
+   	
+        var claves = _.keys( response );
+        
+        for( var n in  claves){
+        	var clave = claves[ n ].replace("_estado", "");
+        
+        	
+        	
+        	if(  Omicron.estadosCollection !== undefined ){
+        		
+        		
+        		var estado =  Omicron.estadosCollection.where({"puntos" : clave, obtenervalorbasedatos : false });
+        		
+        		if( estado !== undefined ){
+            		_.each(estado, function(est){
+            			var valorPunto = Omicron.dsdpCollection.findWhere({dp : true, xid : clave}).get('valor');
+            			
+            			
+            			if( valorPunto !== null ){
+            				est.set({valor : valorPunto});
+            			}
+            			est.set({estado : response[ claves[ n ] ]});
+            			
+            		});
+            		
+            	}   
+        	}
+        	     	
+        }
+
+    };
+    var mobilePopupHistoricoAfterOpen = function(callOpen, callClose) {
+        jQuery("#popupHistorico").bind({
+            popupafteropen: function(event, ui) {
+                callOpen();
+            },
+            popupafterclose: function(event, ui) {
+                callClose();
+
+            }
+        });
+    };
+    var eventConsultarHistoricos = function(call) {
+    	jQuery("#consultar_historicos_reporte").unbind("click");
+        jQuery("#consultar_historicos_reporte").click(function() {
+        	
+        	var desde = jQuery("#desde").val(), hasta = jQuery("#hasta").val();
+            
+            var desde = Omicron.tiempo.interpretarFecha(desde);
+            var hasta = Omicron.tiempo.interpretarFecha(hasta);
+        	
+        	var puntos = jQuery("#punto").val();
+        	
+        	 Omicron.cargando();
+        	// Consultando el ID y nombre del template Reporte_Historico
+        	ReportsDwr.init(function(data){
+				var datos = data.data.reports;
+				var encuentraReporte = false;
+				_.each( datos, function(reporte, posicion){
+					// Como son varios templates, se identifica el que tiene Reporte_Historico
+					if( reporte.name == 'Reporte_Historico' ){
+						encuentraReporte = true;
+
+						// Ejecutando el reporte
+						console.log('Ejecutando...');
+        				OmicronDwr.borrarInstanciasReporte(reporte.id, function() {
+        					OmicronDwr.reporteEjecutar(reporte.id, 
+    			        			desde.getFullYear(), desde.getMonth() + 1, desde.getDate(), desde.getHours(),
+    			                    desde.getMinutes(), desde.getSeconds(),
+    			                    
+    			                    hasta.getFullYear(), hasta.getMonth() + 1, hasta.getDate(), hasta.getHours(),
+    			                    hasta.getMinutes(), hasta.getSeconds(),puntos,			                    
+    			                    function(data){
+    			        				// Identificando el ID del reporte que se genero
+    			        				ReportsDwr.init(function(data){
+    			        					var datos = data.data.instances;
+    			        					
+    			        					var id = null, name = null;
+    			        					_.each( datos, function(reporte, posicion){
+    			        						// Se identifica el reporte Generado, el siguiente codigo permite saber cual es.
+    			        						if( reporte.name.indexOf('Reporte_Historico') !== -1 ){
+    			        							
+    			        							if( id == null || reporte.id > id ){
+    			        								id = reporte.id;
+    			        								name = reporte.name;
+    			        							}
+    			        						}
+    			        					});
+    			        					jQuery(".descargar_reporte_historico").data('reporte-id', id);
+    			        					jQuery(".descargar_reporte_historico").data('reporte-nombre', name);
+    			        					Omicron.fin_cargando();
+    			        					jQuery('.descargar_reporte_historico').show();
+    			        					
+    			        					
+    			        				});
+    			        				
+    			        			});
+						});
+						
+			        	
+					}
+				} );
+				if( ! encuentraReporte ){
+					Omicron.noty({'text' : 'Debe crear un reporte con el nombre "Reporte_Historico" para continuar', 
+		    			'type' : 'error', 'layout' : 'topRight', 'maxVisible' : 1, 'timeout' : 4000});
+				}
+			});
+        	
+
+        	
+        });
+        
+        jQuery(".descargar_reporte_historico").unbind("click");
+        jQuery(".descargar_reporte_historico").click(function() {
+        	var id = jQuery(this).data('reporte-id');
+        	var tipo =  jQuery(this).data('reporte-tipo');
+        	var nombre = jQuery(this).data('reporte-nombre');
+        	var formato = jQuery(this).data('reporte-formato');
+        	
+        	if( id === undefined || id == '' ){
+        		Omicron.noty({'text' : 'Para continuar presione en el boton "Generar Reporte"', 
+	    			'type' : 'information', 'layout' : 'topRight', 'maxVisible' : 1, 'timeout' : 4000});
+        		return;
+        	}
+        	
+        	var omicron = new Omicron.Omicron();
+			omicron.accionReporte( id, nombre, tipo, formato, false );
+
+        	
+        	
+        });
+    	
+        try {
+            jQuery("#consultar_historicos").unbind("click");
+            jQuery("#consultar_historicos").click(function() {
+                var desde = jQuery("#desde").val(), hasta = jQuery("#hasta").val();
+                
+                var desde = Omicron.tiempo.interpretarFecha(desde);
+                var hasta = Omicron.tiempo.interpretarFecha(hasta);
+                
+                Omicron.cargando();
+                
+              
+                OmicronDwr.prepararHistorico(historicoPunto,
+                        true,
+                        desde.getFullYear(), desde.getMonth() + 1, desde.getDate(), desde.getHours(),
+                        desde.getMinutes(), desde.getSeconds(),
+                        true,
+                        hasta.getFullYear(), hasta.getMonth() + 1, hasta.getDate(), hasta.getHours(),
+                        hasta.getMinutes(), hasta.getSeconds(), historicoVentana, function(data) {
+                	
+                		Omicron.tiempo.asignarFechaYHoraDateTimePicker("#desde", data.data.desde);
+                		Omicron.tiempo.asignarFechaYHoraDateTimePicker("#hasta", data.data.hasta);
+                		
+                        Omicron.eventos.eventosPuntoCrearIntervalo(jQuery("#punto").val().split(","), "#eventos_punto");
+                	
+                    	Omicron.interpretarHistorico(data, function() {
+                    		interpretarHistoricoArguments(arguments, function(){
+                    			
+                    			if( ! historicoEsGps ){
+                    				datosGraficadosHistorico = graficarLineaTiempoHistorico(arguments);
+                    			} else if( historicoEsGps ) {
+                    				
+                    				Omicron.collectionGps.cargarInformacionHistorica( arguments );
+                    				
+                    				
+                    			}
+	                    		
+	                    		Omicron.fin_cargando();
+	                    		Omicron.popupReposition('#popupHistorico');
+	                    		
+	                    	});                        
+                    	});
+                });
+
+            });
+        } catch (e) {
+            console.log("Ocurrio un problema consultando la informacion historica");
+            console.log(e);
+        }
+    };
+    var eventAbrirPopup = function() {
+        jQuery("input[data-historico='true']").unbind("click");
+        //jQuery("input[data-historico='true']").click(function() {
+        jQuery("#omicron").on('click', "input[data-historico='true']",function() {
+        	
+        	
+        	if( jQuery(this).data('desde') != 'parametros' ){
+        		Omicron.graficos.setPopupIdVolverAbril(null);        		
+        	}
+        	
+        	
+        	jQuery("div[id*='popupEstablecerParametros_'][data-role='popup']").popup('close');
+
+            jQuery("#punto").val(jQuery(this).data("historico-punto"));
+            historicoVentana = jQuery(this).data("historico-ventana") || jQuery('.promedio_historico option:selected').val();
+            
+            historicoDesde = jQuery(this).data("historico-desde") || MILISEGUNDOS;
+            
+            jQuery('#historico_tiempo, #historico_tiempo_previo, #historico_mapa').hide();
+            jQuery('.promedio_historico').parent().hide();
+        	
+            
+            var gps = jQuery(this).data("gps");
+            if( gps ){
+            	historicoVentana = 0;            	
+            	jQuery('#historico_mapa').show();
+            	
+            	var omicron = new Omicron.Omicron();
+				var xids = omicron.obtenerXidDesdeId( jQuery("#punto").val().split(","));
+            	
+				// Ubica el data clase GPS para historico y le asigna los xids
+            	jQuery("#historico_mapa").data('lat_lon', xids);
+            	
+    			var gpsModel = Omicron.collectionGps.where({gps_id : jQuery("#historico_mapa").data("gps_id")});
+    			if( gpsModel.length > 0 ){ 
+    				gpsModel[ 0 ].set({lat_lon : xids},{silent : true});
+    				
+    				if( xids !== undefined || xids !== '' ){
+    					var xidsCorte = xids.split(",");
+        				for( var n in xidsCorte ){
+        					
+        					// Se verifica si el elemento ya no existe.
+        					var elementoModel = Omicron.collectionGpsElementos.where( {xid :  xidsCorte[ n ], actualizar : false} );
+        					if( elementoModel.length == 0 ){
+        						Omicron.collectionGpsElementos.add({xid : xidsCorte[ n ], actualizar : false });
+        					}
+        					
+        					
+        				} 
+    				}   				   				
+    				
+    			}
+    			
+    			historicoEsGps = gps;
+            } else {
+            	jQuery('.promedio_historico').parent().show();
+            	jQuery('#historico_tiempo, #historico_tiempo_previo').show();
+            }
+            
+            
+            historicoPunto = jQuery("#punto").val();
+            setTimeout(function(){
+            	jQuery("#popupHistorico").popup("open");
+            }, 300);
+            
+            jQuery("#historico_punto_label").html(Omicron.labelsControles()[ historicoPunto ]);
+        });
+    };
+    var partes = function(axes) {
+    	var t = [];
+    	t.push({ xaxis: { from: 1388671466000, to: 1388672166000 }});
+    	//t.push({ xaxis: { from: 5, to: 2 }, yaxis: { from: 10, to: 10 }});
+    	//console.log("Partes", axes);
+    	return t;
+    };
+    var crearHistoricoTiempo = function() {
+        try {
+        	// Si la grafica ya esta creada.
+        	if( jQuery("#historico_tiempo").html() != '' ){
+        		return;
+        	}
+            var opciones = {
+            		colors : Omicron.getColoresLienas()['lineas'],
+	                
+            		series : {
+                		lines : {
+                			lineWidth : 1
+                		}
+                	},
+                    xaxis: {
+                        mode: "time",
+                        timeformat: "%d/%m/%y <br /> %h:%M",
+                        tickLength : 5,
+                        ticks  : 12,
+                        timezone : Omicron.getZonaHoraria()
+                    },
+                    selection  : {
+                    		mode : 'x',
+                    		color : selectionColor
+                    },
+                    grid : {
+                    	markings : partes,
+                    	hoverable: true,
+                    	clickable: true
+                    },
+                    crosshair: {
+                        mode: "x"
+                    },
+	                
+            };
+        	
+            flotCharPuntoHistorico = jQuery.plot("#historico_tiempo", [{
+            		data: [],
+                    lines: {
+                        fill: true
+                    }
+	                }], opciones);
+            
+            
+            jQuery("#historico_tiempo").bind("plothover", function (event, pos, item) {
+            	tooltipGrafico( item );
+            });
+           
+            var tipoEventoHistorico = false;
+            jQuery("#historico_tiempo").bind("plotselected", function (event, ranges) {
+            	tipoEventoHistorico = true;
+            	jQuery.plot("#historico_tiempo", flotCharPuntoHistorico.getData(), jQuery.extend(true, {}, opciones, {
+    				xaxis: {
+    					min: ranges.xaxis.from,
+    					max: ranges.xaxis.to
+    				}
+    			}));
+            	flotCharPuntoPrevio.setSelection(ranges, true);
+
+    		});
+                        
+            jQuery("#historico_tiempo").bind("plotclick", function (event, ranges) {
+            	if(tipoEventoHistorico){
+            		tipoEventoHistorico = false;
+            		return;
+            	}
+            	var axes =  flotCharPuntoHistorico.getAxes();
+            	
+            	jQuery.plot("#historico_tiempo", flotCharPuntoHistorico.getData(), jQuery.extend(true, {}, opciones, {
+    				xaxis: {
+    					min: axes.xaxis.datamin,
+    					max: axes.xaxis.datamax
+    				}
+    			}));
+            	
+            	
+            });
+            
+            
+            opciones_previo = {};
+            jQuery.extend( opciones_previo, opciones );
+            
+            
+            flotCharPuntoPrevio = jQuery.plot("#historico_tiempo_previo", [{
+        		data: [],
+                lines: {
+                    fill: true
+                }
+                }], jQuery.extend(opciones_previo, {
+                	grid: { clickable: true, hoverable: true, },
+                	yaxis: {
+        				ticks: [],
+        				min: 0,
+        				autoscaleMargin: 0.1
+        			},
+        			crosshair: {
+                         mode: "x"
+                    },
+                })); 
+            
+            // TipoEvento es usado para identificar que evento ocurre si plotclick o plotselected
+            // El API al parecer ejecuta los dos es una solucion para que ejecute uno o el otro y no ambos
+            var tipoEvento = false;
+            jQuery("#historico_tiempo_previo").bind("plotselected", function (event, ranges) {
+            	flotCharPuntoHistorico.setSelection(ranges);
+            	// Cuando se activa este plotselected activa el del historico la grafica principal y pone automaticamente
+            	// esta variable en true y cuando el usuario da click para volver a la normalidad no funciona ya que esta true
+            	// la asignacion del false ayuda para que el valor vuelva al estado normal
+            	tipoEventoHistorico = false;
+            	tipoEvento = true;
+    		});
+            
+            jQuery("#historico_tiempo_previo").bind("plotclick", function (event, ranges) {
+            	if(tipoEvento){
+            		tipoEvento = false;
+            		return;
+            	}
+            	var axes =  flotCharPuntoHistorico.getAxes();
+            	
+            	jQuery.plot("#historico_tiempo", flotCharPuntoHistorico.getData(), jQuery.extend(true, {}, opciones, {
+    				xaxis: {
+    					min: axes.xaxis.datamin,
+    					max: axes.xaxis.datamax
+    				}
+    			}));
+            	
+    		});
+            jQuery("#historico_tiempo_previo").bind("plothover", function (event, pos, item) {
+            	tooltipGrafico( item );
+            });
+            
+            
+            
+        } catch (e) {
+            console.log("No fue posible crear la grafica de tiempo");
+            console.log(e);
+        }
+    };
+    var interpretarHistoricoArguments = function(datos, call) {
+    	if( arguments.length === 1 ){
+            call(datos[ 0 ]);
+        } else{
+            call(datos[ 0 ], datos[ 1 ], datos[ 2 ], datos[ 3 ]);
+        }
+    };
+    var consultarHistoricoPorDefecto = function(call) {
+    	
+    	Omicron.cargando();
+    	
+    	//console.log('Entra', historicoPunto, historicoDesde, historicoVentana);
+    	
+    	// No es posible sacar un promedio de un dato alfanumerico
+    	if(historicoEsGps){
+    		historicoVentana = 0;
+    	}
+    	
+        OmicronDwr.prepararHistoricoDesde(historicoPunto, historicoDesde, historicoVentana, function(data) {
+        	//console.log('El historico data', data);
+        	
+        	Omicron.tiempo.asignarFechaYHoraDateTimePicker("#desde", data.data.desde);
+        	Omicron.tiempo.asignarFechaYHoraDateTimePicker("#hasta", data.data.hasta);
+            Omicron.interpretarHistorico(data, function() {
+            	interpretarHistoricoArguments(arguments, call);
+            	Omicron.fin_cargando();
+            	
+            });
+        });
+    };
+    var redondear = function(valor) {
+        return Math.round(parseFloat(valor) * 100) / 100;
+    };
+    var unirLineasTiempoHistorico  = function(datos){
+        var lineas = [];
+        for( var dato in datos ){        	
+            lineas.push( prepararLineaTiempo(datos[ dato ][ 0 ], datos[ dato ][2])  );
+        }
+        return lineas;
+    };
+    
+    var graficarLineaTiempoHistorico = function(datos) {
+    	var graficas = false;
+    	if( datos[ 2 ] !== undefined ){
+    		graficas = [prepararLineaTiempo(datos[ 0 ], datos[ 2 ])];
+        } else{
+        	graficas = unirLineasTiempoHistorico(datos[0] );	
+        }
+   	
+    	flotCharPuntoPrevio.setData(suprimirLabels(graficas));
+    	flotCharPuntoPrevio.setupGrid();
+    	flotCharPuntoPrevio.draw();
+    	
+    	flotCharPuntoHistorico.setData(graficas);
+    	flotCharPuntoHistorico.setupGrid();
+    	flotCharPuntoHistorico.draw();
+        
+        return graficas;
+        
+        
+    };
+    var renderGraficosTiempo = function() {
+    	//var s = 1;
+        try {
+            jQuery("div[data-clase='tiempo']").each(function() {
+                var puntos = jQuery(this).data("puntos"); 
+                // var id = jQuery(this).parent().attr("id").split("_");
+                //tiempo(puntos + "_" + s, "#" + $(this).id);
+                tiempo(puntos, "#" + $(this).id);
+                //s++;
+            });
+
+            eventAbrirPopup();
+        } catch (e) {
+            console.log("No fue posible recorrer las graficas de tiempo para renderizarlas");
+        }
+
+    };
+    var renderAgregarComentarios = function() {
+    	//jQuery("input[data-clase='comentario']").click(function() {
+    	jQuery("#vista").on('click', "input[data-clase='comentario']",function() {
+    		popupComentarios = true;
+    		Omicron.eventos.setCommentTypeId( jQuery(this).data("puntos") );
+        	if(Omicron.graficos.getPopupEventosGeneralesAbierto()) {
+        		jQuery("#popupHistorico").popup('close');
+        	} else{
+        		jQuery("#popupEventosComentario").popup("open");
+        	} 
+    	});
+    };
+    
+
+    return {
+        popupHistorico: function() {
+
+            mobilePopupHistoricoAfterOpen(function() {
+            	popupEventosGeneralesAbierto = true;
+                jQuery("#historico_tiempo, #historico_tiempo").html('');
+                jQuery("#eventos_punto").html('#historico_tiempo');
+                //Omicron.graficos.identificarTamanioLineasTiempo('#historico_tiempo');
+                //Omicron.graficos.identificarTamanioLineasTiempo('#historico_tiempo_previo');
+                consultarHistoricoPorDefecto(function() {
+                	
+                    // Crea la grafica de tiempo.
+                	if( ! historicoEsGps ){
+                		crearHistoricoTiempo();
+                        graficarLineaTiempoHistorico(arguments);
+                	} else if( historicoEsGps ) {
+                		
+                		Omicron.collectionGps.cargarInformacionHistorica( arguments );
+                    }
+                    
+                    
+                    Omicron.eventos.setConsultarEventoPorPunto(true);
+                    // Establecemos la pagina 1 por defecto.
+                    Omicron.eventos.setPaginaEventosPorPunto(1);
+                    Omicron.eventos.eventosPuntoCrearIntervalo(historicoPunto.split(","), "#eventos_punto");
+                    
+                });
+                Omicron.tiempo.datetimepicker("#desde", {
+                	onShow:function(){
+                    	console.log('Nuevo');
+                    }
+                });
+                Omicron.tiempo.datetimepicker("#hasta");
+                
+                
+                
+                eventConsultarHistoricos(function() {
+                });
+                //jQuery(".promedio_historico").unbind("change");
+                jQuery(".promedio_historico").on("change", function(){
+                	historicoVentana =   jQuery(this).val();
+                });
+                
+            }, function() {
+           	
+            	if(Omicron.eventos.getPopupComentarios()){
+            		jQuery("#popupEventosComentario").popup("open");
+            	} else{
+            		popupEventosGeneralesAbierto = false;	
+            	}
+            	
+            	// Cuando se abre un gps la siguiente variable se pone en true, al cerrar el gps la volvemos a poner en false.
+            	// Esto permite mostrar una grafica de tiempo en la proxima peticion, de lo contrario no se veria.
+            	historicoEsGps = false;
+            	// Si el usuario genera un reporte, al cerrarlo reiniciamos las variables para que no genere un reporte con datos anteriores
+            	jQuery(".descargar_reporte_historico").data('reporte-id', '');
+            	jQuery('.descargar_reporte_historico').hide();
+            	
+            	if( popupIdVolverAbril != null ){
+            		jQuery( popupIdVolverAbril ).popup('open');
+            		popupIdVolverAbril = null;
+            	}
+            	
+
+            });
+
+        },
+        renderGraficosTiempo: function() {
+            renderGraficosTiempo();
+        },
+        renderComponentes : function() {
+        	renderAgregarComentarios();
+        },
+        /*crearCapaGrupo: function(grupo) {
+            crearCapaGrupo(grupo);
+        },*/
+        generarGrafico: function(id, grupo) {
+            tiposGraficosDispositivo(id, grupo);
+        },
+        cambiosEstado: function(watchListStates) {
+            cambiosEstado(watchListStates);
+        },
+        getDatosTiempo: function() {
+            return datosTiempo;
+        },
+        /*setLimitesPunto : function(punto, datos) {
+         limitesPunto[ punto ] = datos;
+         },*/
+        setLimitesPunto: function(punto, datos) {
+            limitesPunto[ punto ] = datos;
+        },
+        getLimitesPunto : function( punto ) {
+        	return limitesPunto;
+        },
+        setDatosTiempo: function(punto, datos) {
+            datosTiempo[ punto ] = datos;
+        },
+        setActualizarTiempo: function(id, graficos) {
+            actualizarTiempo(id, graficos);
+        },
+        setPrepararLineaTiempo: function(id, data) {
+            return prepararLineaTiempo(id, data);
+        },
+        /*setActualizarTiempoLinea: function(id, data) {
+            return actualizarTiempoLinea(id, data);
+        },*/
+        setActualizarTiempoLimites: function(id, tiempo) {
+            return actualizarTiempoLimites(id, tiempo);
+        },
+        getGraficosTiempo: function(  ) {
+            return graficosTiempo;
+        },
+        setActualizarDisplay: function(id, valor) {
+            actualizarDisplay(id, valor);
+        },
+        setActualizarEstados : function(id, valor) {
+            actualizarEstados(id, valor);
+        },
+        setActualizarBotones : function(id, valor) {
+            actualizarBotones(id, valor);
+        },
+        setActualizarLabel : function(id, valor) {
+            actualizarLabel(id, valor);
+        },
+        identificarTamanioLineasTiempo : function(id){
+        	jQuery(id).css({
+        		width : jQuery(id).parent().width() + 'px'
+        	});
+        	
+        },
+        setWitdhyHeightPopup: function() {
+   
+        },
+        setPopupIdVolverAbril : function( popupId ) {
+        	popupIdVolverAbril = popupId;
+        },
+        
+        getIdentificarDispositivoPuntos : function(punto) {
+            return identificarDispositivoPuntos(punto);
+        },
+        setUnirLineasTiempo : function(idActual, idActualDatos, lineasIds, tiempoLimites) {
+            return unirLineasTiempo(idActual, idActualDatos, lineasIds, tiempoLimites);
+        },
+        getPopupEventosGeneralesAbierto : function() {
+        	return popupEventosGeneralesAbierto;
+        },
+        setPopupEventosGeneralesAbierto : function(popupEventosGeneralesAbierto) {
+        	popupEventosGeneralesAbierto = popupEventosGeneralesAbierto;
+        },
+        setUnirLimitesLineas : function(lineasUnidas, tiempo, id) {
+        	return unirLimitesLineas(lineasUnidas, tiempo, id);	
+        },
+        identificarTamGraficoHistorico : function() {
+            jQuery("#historico_tiempo,#historico_tiempo_previo,#paginacion_punto,#historico_mapa").css({'width' : (jQuery("body").width() - 200) +  'px'});
+            jQuery('#popupHistorico, #popupPlanificarEvento').css({'height' : (jQuery("body").height() - 80) +  'px'});
+            
+        },
+        /* test-code */
+        test_identificarDispositivoPuntos: function(punto) {
+            return identificarDispositivoPuntos(punto);
+        },
+        getRedondear : function(valor){
+        	return redondear( valor );
+        }
+        /* end-test-code */
+
+    };
+
+})();
+
+

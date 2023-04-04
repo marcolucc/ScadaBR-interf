@@ -1,0 +1,709 @@
+Omicron.eventos = {};
+
+Omicron.eventos = (function() {
+
+    var puntos = [],
+            // Garantiza que solo se consultan eventos por punto cuando 
+            // se tiene abierto el popup
+            consultarEventoPorPunto = false,
+            // Pagina que el usuario vera por defecto
+            paginaEventosGenerales = 1,
+            paginaEventosPorPunto = 1;
+    
+    var commentReferenceId = null;
+    var commentTypeId = null;
+    var popupComentarios = false;
+    var eventoInformadoId = null;
+    // Identifica el evento en el que dieron el click
+    var eventoInformadoIdClick = null;
+    var puntoIdEventoInformado = null;
+    var notyEventoActivo = [];
+    var dfdEventos = null;
+    // Es true cuando el comentario lo agregan desde el componenten data-clase comentario
+    var comentarioLibre = false;
+    var tipoAlarmasNoty = {
+			0 : 'success',
+			1 : 'information',
+			2 : 'warning',
+			3 : 'warning',
+			4 : 'error'
+	};
+    var tipoAlarmasAudio = {
+    		0 : 'information',
+			1 : 'information',
+			2 : 'urgent',
+			3 : 'urgent',
+			4 : 'critical'
+    };
+    // Contiene la referencia al audio que esta sonando, es util para apagarlo desde el lugar que se necesite
+    // o bien iniciarlo
+    $alarma = null;
+    // Permite establecer que debe hacer la tabla donde se muestran los historicos
+    // por ejemplo mostrarAcciones = false no muestra las acciones de reconocer en los eventos
+    // de los historicos.
+    var paramsHistoricoPunto = {
+        	mostrarAcciones : false
+    };
+    
+    
+    var eventosHtml = function(){
+    	// Se ejecuta cuando el usuario agrega un comentario sobre un evento.
+        jQuery('#eventos_generales,#eventos_punto').on('click', 'img[data-comentario="true"]', function(){
+        	commentReferenceId = jQuery(this).data("comentario-id");
+        	commentTypeId = 1; 
+        	popupComentarios = true;
+        	if(Omicron.graficos.getPopupEventosGeneralesAbierto()) {
+        		jQuery("#popupHistorico").popup('close');
+        	} else{
+        		jQuery("#popupEventosComentario").popup("open");
+        	}       	
+        	
+        });
+        // Cuando el usuario coloca el puntero sobre el icono de reconocer o silenciar en los eventos
+        jQuery('#eventos_generales,#eventos_punto').on('mouseover', 
+        		'img[data-evento-accion-silenciar="true"],img[data-evento-accion-reconocer="true"],img[data-comentario="true"]',
+        		function(){
+        	jQuery(this).css( 'cursor', 'pointer' );        	
+        });
+        jQuery('#eventos_generales,#eventos_punto').on({
+        	'mouseover' : function() {        		
+            	jQuery(this).css( 'cursor', 'pointer' );
+        	},
+        	'click' : function() {
+        		irAlDispositivo(jQuery(this).data("evento-accion-irdispositivo-id"));
+        	},
+        	
+        }, 'span[data-evento-accion-irdispositivo="true"]');
+
+        jQuery('#comentario_agregar').on('click', function() {
+        	var c = jQuery('#comentario').val();
+        	if(  commentReferenceId != null ) {
+        		agregarComentario(commentTypeId, commentReferenceId, c);
+        	} else{
+        		OmicronDwr.agregarComentario(c,commentTypeId, function(){
+        			nuevoComentarioAgregado( c );
+        			resetComentario();
+        		});
+        	}
+        	
+        });
+        jQuery("#popupEventosComentario").bind({
+            popupafteropen: function(event, ui) {
+            	jQuery('#comentario').focus();
+            },
+            popupafterclose: function(event, ui) {
+            	if(Omicron.graficos.getPopupEventosGeneralesAbierto()) {
+        			jQuery("#popupHistorico").popup('open');
+        			popupComentarios = false;
+        		}
+            }
+        });
+    };
+    var resetComentario = function() {
+    	jQuery('#comentario').val('');
+		jQuery("#popupEventosComentario").popup('close');
+		popupComentarios = false;
+		commentReferenceId = null;
+    };
+    var nuevoComentarioAgregado = function( comentario ) {
+    	Omicron.noty({'text' : 'Nuevo Comentario Agregado: <strong>' + comentario +'</strong>', 
+			'type' : 'information', 'layout' : 'topRight'});
+    }
+
+    var agregarComentario = function(commentTypeId, commentReferenceId, comentario){
+    	if( comentario == '' ){
+    		Omicron.noty({'text' : 'El comentario no puede ser vacio' + comentario +'</strong>', 
+    			'type' : 'error',  'maxVisible' : 1});
+    		return;
+    	}
+    	MiscDwr.addUserComment(commentTypeId, commentReferenceId, comentario, function(){
+    		resetComentario();
+    		nuevoComentarioAgregado( comentario );
+    		
+    	});
+    };
+
+    var identificarPuntosActivos = function() {
+        try {
+            puntos = [];
+
+            var $migaGrupoRoot = jQuery("#migaGrupoRoot"),
+                    $migaDivGrupo = jQuery("#migaDivGrupo"),
+                    $migaDivDispositivo = jQuery("#migaDivDispositivo"),
+                    puntosTotales = Omicron.datosGraficos();
+
+
+            // Si no es posible ver migaDivGrupo por logica tampoco  migaDivDispositivo   
+            if (!$migaDivGrupo.is(":visible") && !$migaDivDispositivo.is(":visible")) {
+                for (var n in  puntosTotales) {
+                	
+                    puntos.push(puntosTotales[ n ]);
+
+
+                }
+            } else if ($migaDivGrupo.is(":visible") && !$migaDivDispositivo.is(":visible")) {
+                // Se identifican los grupos activos
+                jQuery("#grupos > div:visible > div > button").each(function(c, v) {
+                    var grupo = jQuery(this).data("grupo");
+                    // Recorriendo los dispositivos
+                    jQuery("button[data-grupopadre='" + grupo + "']").each(function(e, v) {
+                        // Recorriendo los puntos del dispositivo
+                        jQuery("button[data-grupo='" + jQuery(this).data("grupo") + "']").each(function() {
+                            var p = jQuery(this).data("key");
+                            if (p !== undefined) {
+                                puntos.push(p);
+                            }
+
+                        });
+                    });
+                    
+                });
+            } else if ($migaDivGrupo.is(":visible") && $migaDivDispositivo.is(":visible")) {
+                var puntosActuales = Omicron.getPuntosActuales();
+                if (puntosActuales !== null) {
+                    puntos = Omicron.getPuntosActuales().split(",");
+                } else {
+                    console.log("No fue posible capturar puntos");
+                }
+            }
+        } catch (e) {
+            console.log("Ocurrio un error identificando los puntos activos");
+            console.log( e );
+        }
+    };
+    var cerrarNotysEventosActivos = function() {
+    	for(n in notyEventoActivo){
+    		notyEventoActivo[ n ].close();
+    	}
+    	notyEventoActivo = [];
+    };
+    var irAlDispositivo = function(puntoId){
+    	
+    	// Permite llevar al usuario hasta el dispositivo que lanza el evento.
+    	
+    	// Retorna el id del dispositivo al cual pertenece el punto donde dieron click
+    	var dispositivoId = jQuery("button[data-key='"+ puntoId +"']").data('grupo');
+    	
+    	// Dispositivo del punto
+    	var dispositivo = jQuery("button[data-grupo='"+ dispositivoId +"'][data-tipo='gru']").data('grupopadre');
+    	var $dispositivo = jQuery("button[data-grupo='"+ dispositivoId +"'][data-tipo='gru']");
+    	
+    	
+    	
+    	// Retorna el padre del dispositivo es decie "Neveras" por ejemplo
+    	var sub_grupo = jQuery("button[data-grupo='"+ dispositivo +"'][data-tipo='gru']").data('grupopadre');
+    	var $sub_grupo = jQuery("button[data-grupo='"+ dispositivo +"'][data-tipo='gru']");
+    	
+    	// Retorna el piso, el padre de neveras
+    	var $grupo = jQuery("button[data-grupo='"+ sub_grupo +"'][data-tipo='gru']");
+    	
+    	// Piso 1 
+    	$grupo.trigger('click');
+    	// Neveras
+    	$sub_grupo.trigger('click');
+    	// Se pinta el dispositivo con el fin de que el usuario lo identifique facil
+    	//jQuery("#grupo_"  + $dispositivo.data("grupo")).css("border-color", "#FF0000");
+    	//jQuery("#grupo_"  + $dispositivo.data("grupo")).addClass('eventoInformado');
+    	
+    	
+    	
+    };
+    // Asegura que al iniciar un sonido, no este funcionando otro en paralelo
+    var apagarTodosLosSonidos = function() {
+    	jQuery('#information')[0].pause();
+    	jQuery('#critical')[0].pause();
+    	jQuery('#urgent')[0].pause();
+    };
+    var playAudio = function(tipo){
+    	
+		return jQuery('#' + tipo)[0];
+	};
+    var informarEvento = function(datos) {
+    	$alarma = playAudio( tipoAlarmasAudio[datos.alarmLevel] );
+    	if(! datos.silenced && ! Omicron.getIsMuted()){
+    		apagarTodosLosSonidos();
+    		$alarma.play();
+    	}    	
+    	// Informa al usuario en un noty del evento ocurrido
+    	if( eventoInformadoId !== datos.id  ){
+    		
+    		cerrarNotysEventosActivos();
+    		notyEventoActivo.push(Omicron.noty({'text' : imagenEvento(datos) +' '+ tipoEvento(datos) + ' - ' +datos.message, 
+        		'type' : tipoAlarmasNoty[datos.alarmLevel], 'layout' : 'top' 
+        			 , 'maxVisible' : 1, id : 'noty_eventos', "timeout": false,callback : {
+        				 	afterShow : function(){
+        				 		jQuery("#noty_eventos").on({
+        			    			'click' : function() {
+        			    				if(Omicron.graficos.getPopupEventosGeneralesAbierto()) {
+        				        			   jQuery("#popupHistorico").popup('close');
+        				           		}
+        			    	    		jQuery("#migaGrupoRoot").trigger("click");
+        			    	    		eventoInformadoIdClick = eventoInformadoId; 
+        			    	    		jQuery("tr[class='eventoInformado']").removeClass('eventoInformado');
+        			    	    		jQuery("tr[data-evento-id='"+ eventoInformadoIdClick +"']").addClass('eventoInformado');
+        			    	    		// jQuery('#grupo_8').animate({opacity : 1}, 1000, function(){console.log('hola')})
+        			    			}
+        			    		});
+        				 }}
+        		}));
+    		/*
+    		 * buttons : [
+        		           {
+        		        	   'addClass' : 'btn', text: 'Reconocer', onClick: function($noty) {
+        		        		   Omicron.eventos.aceptarEvento(eventoInformadoId);
+        		        		   eventoInformadoId = null;
+        		        		   puntoIdEventoInformado = null;
+        		        		   $noty.close();
+        		        		   $alarma.pause();
+        		        	   }
+        		           },
+        		           {
+        		        	   'addClass' : 'btn', text: 'Silenciar', onClick: function($noty) {
+        		        		   Omicron.eventos.silenciarEvento(eventoInformadoId);
+        		        	   }
+        		           },
+        		           {
+        		        	   'addClass' : 'btn', text: 'Ir al Inicio', onClick: function($noty) {
+        		        		   if(Omicron.graficos.getPopupEventosGeneralesAbierto()) {
+        		        			   jQuery("#popupHistorico").popup('close');
+        		           		   }
+        		        		   jQuery("#migaGrupoRoot").trigger("click")
+        		        		   
+        		        	   }
+        		           }
+        		]*/
+    		
+    		
+            
+            eventoInformadoId = datos.id;
+            puntoIdEventoInformado = datos.punto;
+    	}
+    	
+    };
+    var consultarEventosGenerales = function(call) {
+        consultarEventos(puntos, Omicron.eventos.getPaginaEventosGenerales(), Omicron.getLimiteEventos(), 1, false, false, function(data) {
+            jQuery("#eventos_generales").html("");
+            
+            interpretarEventosActivos(data, function(datos){
+            	informarEvento(datos);
+            });
+            interpretarEventos(data, function(datos) {
+                asignarEventosHtml("#eventos_generales", datos);
+            });
+            call(data);
+        });
+
+    };
+    var consultarEventos = function(puntos, limiteEventos, pagina, retorno, desde, hasta, call) {
+        try {
+            if (puntos.length !== 0) {
+            	
+            	// consultarDesde y consultarHasta es usado para que solo se consulte por fecha
+            	// los eventos por punto y no generales.
+            	var consultarDesde = true, consultarHasta = true;
+            	if(  ! desde || ! hasta ){
+            		consultarDesde = false, consultarHasta = false;
+            		desde = new Date();
+            		hasta = desde;
+            	}
+            	            	
+            	
+                OmicronDwr.eventos(puntos.join(","), limiteEventos, pagina,retorno,
+                		consultarDesde,
+                        desde.getFullYear(), desde.getMonth() + 1, desde.getDate(), desde.getHours(),
+                        desde.getMinutes(), desde.getSeconds(),
+                        consultarHasta,
+                        hasta.getFullYear(), hasta.getMonth()  + 1, hasta.getDate(), hasta.getHours(),
+                        hasta.getMinutes(), hasta.getSeconds(), function(data) {
+                    call(data);
+                });
+            }
+        } catch (e) {
+            console.log("No fue posible consultar los eventos");
+            console.log(e);
+        }
+
+    };
+    var accionesEventos = function(datos) {
+    	var a = datos.acknowledged, u = datos.userNotified, s = datos.silenced, html = '';
+    	
+        if (u) {
+            if (a) {
+                html += img_omicron('Dialog-disabled', 'style="display:inline;"');
+            } else {
+                html += img_omicron('Dialog-accept', 'style="display:inline;" title="Reconocer" data-evento-accion-reconocer="true" data-evento-accion-reconocer-id="' + datos.id + '" onclick="Omicron.eventos.aceptarEvento(' + datos.id + ', this)"');
+            }
+            if ( s) {
+                html += img_omicron('Audio-volume-muted', 'style="display:inline;" title="Silenciar" data-evento-accion-silenciar="true" data-evento-accion-silenciar-id="' + 
+                		datos.id + '"  onclick="Omicron.eventos.silenciarEvento(' + datos.id + ', this)"');
+            } else {
+                html += img_omicron('Audio-volume-medium', 'style="display:inline;" title="Silenciar" data-evento-accion-silenciar="true" data-evento-accion-silenciar-id="' + 
+                		datos.id + '"  onclick="Omicron.eventos.silenciarEvento(' + datos.id + ', this)"');
+            }
+        }
+        return html;
+    };
+    var interpretarEventosActivos = function(data, call) {
+        try {
+            var datos = jQuery.parseJSON(data.data.eventos_activos);
+            if( datos.length  === 0 ){
+            	cerrarNotysEventosActivos();
+            }
+            for (var ident in  datos) {
+            	
+                call({
+                	eventType: datos[ ident ].eventType,
+                    activeTimestamp: datos[ ident ].activeTimestamp,
+                    alarmLevel: datos[ ident ].alarmLevel,
+                    id: datos[ ident ].id,
+                    message: datos[ ident ].message,
+                    punto: datos[ ident ].punto,
+                    idDataSource: datos[ ident ].idDataSource,
+                    rtnTimestamp: datos[ ident ].rtnTimestamp,
+                    rtnMessage: datos[ ident ].rtnMessage,
+                    active: datos[ ident ].active,
+                    silenced: datos[ ident ].silenced,
+                    userNotified: datos[ ident ].userNotified,
+                    acknowledged: datos[ ident ].acknowledged
+                    
+                });
+                break;
+            };
+
+        } catch (e) {
+            console.log("Ocurrio un error interpretando eventos activos");
+            console.log(e);
+        }
+
+    };
+    var interpretarEventos = function(data, call) {
+        try {
+            var datos = jQuery.parseJSON(data.data.eventos),
+                    datos = datos.eventos;
+
+            for (var ident in  datos) {
+                call({
+                	eventType: datos[ ident ].eventType,
+                    activeTimestamp: datos[ ident ].activeTimestamp,
+                    activeFecha: datos[ ident ].activeFecha,
+                    alarmLevel: datos[ ident ].alarmLevel,
+                    id: datos[ ident ].id,
+                    message: datos[ ident ].message,
+                    punto: datos[ ident ].punto,
+                    idDataSource: datos[ ident ].idDataSource,
+                    rtnTimestamp: datos[ ident ].rtnTimestamp,
+                    rtnFecha: datos[ ident ].rtnFecha,
+                    rtnMessage: datos[ ident ].rtnMessage,
+                    active: datos[ ident ].active,
+                    silenced: datos[ ident ].silenced,
+                    userNotified: datos[ ident ].userNotified,
+                    acknowledged: datos[ ident ].acknowledged,
+                    comments : datos[ident].comments
+                    
+                });
+            };
+            if( dfdEventos != null ){
+            	dfdEventos.resolve();
+            }
+            
+
+        } catch (e) {
+            console.log("Ocurrio un error interpretando eventos");
+            console.log(e);
+        }
+
+    };
+    // El tipo de evento corresponde principalmente si ocurre algo 
+    // relacionado con un punto una fuente de datos o algo q pasa en el sistema
+    var tipoEvento = function(datos) {
+        var r = '';
+        if (datos.punto !== -1) {
+        	r = Omicron.labelsControles()[datos.punto];
+        	if( r == undefined ){
+        		return '';
+        	}
+
+        }
+        return r;
+
+    };
+    var img_omicron = function(i, propiedades) {
+        return '<img src="omicron/images/' + i + '.png" ' + propiedades + ' />';
+    };
+    var img = function(i, propiedades) {
+        return '<img src="images/' + i + '.png" ' + propiedades + ' />';
+    };
+    var imagenEvento = function(datos) {
+        var a = datos.active, l = datos.alarmLevel, i = '';
+
+        if (a && l == 0) {
+            i = 'flag_green';
+        } else if (l == 0) {
+            i = 'flag_green_off';
+        } else if (a && l == 1) {
+            i = 'flag_blue';
+        } else if (l == 1) {
+            i = 'flag_blue_off';
+        } else if (a && l == 2) {
+            i = 'flag_yellow';
+        } else if (l == 2) {
+            i = 'flag_yellow_off';
+        } else if (a && l == 3) {
+            i = 'flag_orange';
+        } else if (l == 3) {
+            i = 'flag_orange_off';
+        } else if (a && l == 4) {
+            i = 'flag_red';
+        } else if (l == 4) {
+            i = 'flag_red_off';
+        }
+        return (i != '' ? '<img src="images/' + i + '.png" /> ' + mensajeEvento( i.split("_")[1] )  : '');
+    };
+    var mensajeEvento = function( e ) {
+    	var r = '';
+    	if( e == 'blue' ){
+    		r = 'Informaci&oacute;n';
+    	} else if( e == 'yellow' ){
+    		r = 'Urgente';    		
+    	}else if( e == 'orange' ){
+        	r = 'Critico';
+        } else if( e == 'red' ){
+    		r = 'Riesgo a la Vida';
+    	} 
+    	return r;
+    };
+    
+    var asignarEventosHtml = function(id, datos, params) {
+    	otros = {mostrarAcciones : true};
+    	jQuery.extend( otros, params );
+    		
+        var f = new Date(datos.activeTimestamp);
+        var f2 = new Date(datos.rtnTimestamp);
+        jQuery(id).append(
+                '<tr data-evento-id="'+ datos.id +'" class="'+ (eventoInformadoIdClick == datos.id ? 'eventoInformado' : '') +'">' +
+                '<!--<td>' + datos.id + '</td>-->' +
+                '<td><span data-evento-accion-irdispositivo="true" data-evento-accion-irdispositivo-id="' + datos.punto + '">' + tipoEvento(datos) + '</span></td>' +
+                '<td>'+  imagenEvento(datos) + '</td>' +
+                '<td>' + datos.activeFecha + '</td>' +
+                '<td>' + datos.message + '<br />' +leerComentarios(datos.comments)+ '</td>' +  
+                '<td>'+ img_omicron('Text-x-generic_with_pencil', 
+                		'style="display:inline;" title="Agregar Comentario" data-comentario-typeevent="'+ datos.eventType +'" data-comentario-id="'+ datos.id +'" data-comentario="true"') +'</td>' +
+                '<td>' + (! datos.active ? datos.rtnFecha + ' - ' +
+                        datos.rtnMessage : 'Activo <img src="images/flag_white.png" />' )  + ' ' + '</td>' +
+                (otros.mostrarAcciones ? '<td>' + accionesEventos(datos) + '</td>' : '') +
+                '</tr>');
+
+
+    };
+    var leerComentarios = function( comentarios ) {    	
+    	var r = '';
+    	for( var n in comentarios  ){
+    		var f = new Date(comentarios[n].ts);
+    		r +=  '<li class="lista_quitar_vinetas">'+ 
+    		img('comment', 'style="display:inline;"')+ '&nbsp;&nbsp' +
+    		comentarios[ n ].tsFecha +' por ' +
+    		comentarios[n].username + ': '+
+    		comentarios[n].comment +'</li>';
+    	}
+    	return '<ul>'+ r +'</ul>';
+    };
+    var totalPaginas = function(cantEventosTotales, cantEventosPorPagina) {
+        try {
+            var paginas = Math.ceil(cantEventosTotales / cantEventosPorPagina);
+            return paginas;
+        } catch (e) {
+            console.log("Ocurrio un error calculando el numero de paginas");
+            console.log(e);
+        };
+
+    };
+    var generarPaginacion = function(paginas, donde, paginaActual) {
+        try {
+            var $paginacion = jQuery(donde);
+            $paginacion.html("");
+            if (paginas > 1) {
+                for (var n = 1; n <= paginas; n++) {
+                    $paginacion.append('<a href="#" data-role="button" data-paginar="true" '
+                            + 'data-pag="' + n + '" data-theme="' + (n === paginaActual ? 'c' : 'b') + '" '
+                            + ' data-inline="true" data-mini="true">' + n + '</a>');
+                }
+            }
+            Omicron.render();
+        } catch (e) {
+            console.log("Ocurrio un error generamdo la paginacion de los eventos");
+            console.log(e);
+        }
+    };
+    var eventosPaginacion = function(donde, call) {
+        jQuery(donde).click(function() {
+            call(jQuery(this));
+        });
+    };
+
+
+    return {
+    	eventos : function(){
+    		eventosHtml();
+    	},
+        generarEventos: function(datos) {
+            generarEventos(datos);
+        },
+        generarPuntos: function(datos) {
+            generarPuntos(datos);
+        },
+        eventosGeneralesCrearIntervalo: function() {
+            intervalEventosGenerales = setInterval(function() {
+                Omicron.eventos.eventosGenerales();
+            }, 5000);
+        },
+        eventosGenerales: function() {
+            identificarPuntosActivos();
+            consultarEventosGenerales(function(data) {
+
+            	
+                generarPaginacion(totalPaginas(jQuery.parseJSON(data.data.eventos_totales),
+                        Omicron.getLimiteEventos()), "#paginacion", paginaEventosGenerales);
+
+                eventosPaginacion("#paginacion > a[data-paginar='true']", function($) {
+
+                    Omicron.eventos.setPaginaEventosGenerales($.data("pag"));
+                    // Borrado de intervalos
+                    // Con el fin de garantizar 1 peticion siempre cada n
+                    // segundos que esten configurados, no peticiones seguidas.
+                    clearInterval(intervalEventosGenerales);
+                    // Se crea nuevamente el interalo
+                    Omicron.eventos.eventosGeneralesCrearIntervalo();
+                    // Se lanza la peticion.
+                    Omicron.eventos.eventosGenerales();
+
+                });
+
+
+            });
+
+
+        },
+        eventosPuntoCrearIntervalo: function(puntos, id) {
+        	Omicron.eventos.eventosPunto(puntos, id);
+            /*intervalEventosPunto = setInterval(function() {
+                Omicron.eventos.eventosPunto(puntos, id);
+            }, 5000);*/
+        },
+
+        eventosPunto: function(puntos, id) {
+            var desde = Omicron.tiempo.interpretarFecha(jQuery("#desde").val());
+            var hasta = Omicron.tiempo.interpretarFecha(jQuery("#hasta").val());
+            
+       	
+            consultarEventos(puntos, Omicron.eventos.getPaginaEventosPorPunto(),
+                    Omicron.getLimiteEventos(), 3, desde, hasta, function(data) {
+
+                jQuery(id).html("");
+                
+                // Crea un defered, cuando los eventos se carguen totalmente en el html 
+                dfdEventos = jQuery.Deferred();
+                
+                if( ! paramsHistoricoPunto.mostrarAcciones  ){
+                	jQuery("#eventos_punto_acciones").remove();
+                }
+                
+                interpretarEventos(data, function(datos) {
+                    asignarEventosHtml(id, datos, paramsHistoricoPunto);
+                    
+                });
+                dfdEventos.then(function(){
+                	Omicron.popupReposition('#popupHistorico');
+                });
+
+                generarPaginacion(totalPaginas(jQuery.parseJSON(data.data.eventos_totales),
+                        Omicron.getLimiteEventos()), "#paginacion_punto", paginaEventosPorPunto);
+
+                eventosPaginacion("#paginacion_punto > a[data-paginar='true']", function($) {
+                    Omicron.eventos.setPaginaEventosPorPunto($.data("pag"));
+                    //clearInterval(intervalEventosPunto);
+                    // Se crea nuevamente el interalo
+                    Omicron.eventos.eventosPuntoCrearIntervalo(puntos, id);
+                    // Se lanza la peticion.
+                    Omicron.eventos.eventosPunto(puntos, id);
+                    
+                });
+
+
+            });
+        },
+        identificarPuntosActivos: function() {
+            identificarPuntosActivos();
+        },
+        setPuntos: function(puntos_ids) {
+            puntos = puntos_ids;
+        },
+        setConsultarEventoPorPunto: function(porPunto) {
+            consultarEventoPorPunto = porPunto;
+        },
+        setPaginaEventosGenerales: function(paginas) {
+            paginaEventosGenerales = paginas;
+        },
+        getPaginaEventosGenerales: function() {
+            return paginaEventosGenerales;
+        },
+        setPaginaEventosPorPunto: function(paginas) {
+            paginaEventosPorPunto = paginas;
+        },
+        getPaginaEventosPorPunto: function() {
+            return paginaEventosPorPunto;
+        },
+        aceptarEvento: function(eventId, evento) {
+        	if( evento !== undefined ){        	
+        		evento.src = evento.src.replace('omicron/images/Dialog-accept.png', 'omicron/images/Dialog-disabled.png');
+        	}
+        	
+        	cerrarNotysEventosActivos();
+        	$alarma.pause();
+            MiscDwr.acknowledgeEvent(eventId);
+            
+        },
+        getPopupComentarios : function() {
+        	return popupComentarios;
+        },
+        setPopupComentarios : function(popupComentarios) {
+        	popupComentarios = popupComentarios;
+        },
+        getApagarTodosLosSonidos : function() {
+        	return apagarTodosLosSonidos();
+        },
+        getAlarma : function() {
+        	return $alarma;
+        },
+        silenciarEvento: function(muted, evento) {
+        	/*if( evento !== undefined ){        	
+        		evento.src = evento.src.replace('Audio-volume-medium', 'Audio-volume-muted');
+        	}*/
+        	if( $alarma !== null ){
+        		$alarma.pause();
+        	}
+        	
+            MiscDwr.toggleSilence(muted, function(response) {
+            	silenced = response.data.silenced;
+            	if( silenced ){
+            		evento.src = 'omicron/images/Audio-volume-muted.png';
+            	} else{
+            		evento.src = 'omicron/images/Audio-volume-medium.png';
+            	}
+            });
+        },
+        nuevoComentario: function(eventId) {
+
+        },
+        reconocerEventosPunto : function() {
+        	OmicronDwr.reconocerEventosPunto( parseInt( jQuery("#punto").val() ), function(data){
+        		jQuery("#consultar_historicos").click();
+        	} );
+        	
+        },
+        // Data point id para agregar el comentario
+        setCommentTypeId : function(v){
+        	commentTypeId = v;
+        }
+
+    };
+}());

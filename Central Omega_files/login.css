@@ -1,0 +1,27 @@
+div[data-role="content"]{
+    width: 30%;
+    margin:0 auto;
+    
+}
+@media all and (max-width: 450px) {
+	div[data-role="content"]{
+		width: 100%;
+	}
+	
+}
+
+/*@media all and (max-width: 1160px) {
+	.nombre_sistema{
+		font-size:15px;
+	} 
+}
+@media all and (max-width: 1210px) {
+	#contenedor{
+		width:81.1%;
+	} 
+}*/
+
+#footer{
+    font-size:11px;
+    
+}

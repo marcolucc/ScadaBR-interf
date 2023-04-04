@@ -1,0 +1,687 @@
+Omicron = {};
+
+Omicron = (function() {
+	// Permite almacenar una instancia de la vista de backbone manejadora de los componentes
+	var clases = null;	
+	
+	var puntosDesde = [];
+    var limiteEventos = null;
+    var limites = null;
+    // Funciones para el manejo de las estructuras.
+    var estructuraGeneral = null;
+    var datosGraficos = [];
+    var tiposGraficos = null;
+    var dispoGrupos = [];
+    var puntosActuales = null;
+    var puntosDispositivo = {};
+    var configDatos = null;
+    var cargandoNotyId = [];
+    var is_muted  = null;
+    var anio = null;
+    var mes = null;
+    var dia = null;
+    var zonaHoraria = null;
+    // Almacena los labels de los controles.
+    var labelsControles = {};
+    var coloresLienas = {
+    		'lineas' :  ["#0000FF","#5a9f09", "#cb4b4b", "#4da74d", "#9440ed"],
+    		'limites' : '#cccccc'
+    };
+
+    var generarSubFolders = function(folders, grupoPadre) {
+        if (folders.length == 0) {
+            return '';
+        }
+        var html = '';
+        jQuery.each(folders, function(c, v) {
+            //html += '<li data-grupo="'+ v.id +'" data-tipo="gru" data-grupopadre="'+ grupoPadre +'">'+ v.name +'</li>';
+            html += '<div class="' + (grupoPadre != undefined ? 'ui-screen-hidden' : '')
+                    + '" data-disgrupo="' + grupoPadre + '"><button data-grupo="' + v.id
+                    + '" data-tipo="gru" data-grupopadre="' + grupoPadre
+                    + '" data-theme="b">' + v.name + '</button></div>';
+
+
+            html += generarPoints(v.points, v.id);
+            html += generarSubFolders(v.subfolders, v.id);
+        });
+        return  html;
+    };
+    var generarPoints = function(points, grupo) {
+        if (points.length == 0) {
+            return '';
+        }
+        var html = '';
+        jQuery.each(points, function(c, v) {
+        	var label = v.value.split("-");
+            labelsControles[ v.key ] = label[1];
+            datosGraficos.push( v.key );
+            html += '<div class="ui-screen-hidden"><button data-key="' + v.key + '" data-tipo="dis" data-grupo="' + grupo + '">' + v.value + '</button></div>';
+        });
+        return html;
+    };
+
+    // Primer nivel de busqueda.
+    var pointFolder = function(data) {
+        var html = '';
+        html += generarPoints(data.pointFolder.points, '');
+        html += generarSubFolders(data.pointFolder.subfolders);
+        return html;
+    };
+
+    // Eventos.
+
+    var eventoDispositivo = function() {
+        jQuery("*[data-tipo='dis']").bind({
+            click: function() {
+                Omicron.graficos.generarGrafico(jQuery(this).data("key"));
+            }
+        })
+    };
+
+    var dispositivosEnGrupo = function() {
+        //jQuery("")
+    };
+
+    var interpretarTiempo = function() {
+
+    };
+
+
+    var eventoGrupo = function() {
+        jQuery("*[data-tipo='gru']").bind({
+            click: function() {
+
+
+                jQuery("#vista").html("");
+
+                var grupo = jQuery(this).data("grupopadre");
+
+                // Se ejecuta cuando presionan sobre el Primer grupo
+                if (grupo == "undefined") {
+                    grupo = jQuery(this).data("grupo");
+
+                    jQuery("#migaDivGrupo").removeClass("ui-screen-hidden");
+                    jQuery('#migaDivGrupo > div > span > span:first').html(jQuery(this).html());
+                    jQuery('#migaGrupo').data("grupo", grupo);
+
+                    jQuery("div[data-disgrupo='" + grupo + "']").removeClass("ui-screen-hidden");
+                    jQuery("div[data-disgrupo='undefined']").addClass("ui-screen-hidden");
+
+                    Omicron.eventos.identificarPuntosActivos();
+                    return;
+                }
+                jQuery("#migaDivDispositivo").removeClass("ui-screen-hidden");
+                jQuery('#migaDivDispositivo > div > span > span:first').html(jQuery(this).html());
+                // Almacena los puntos que el usuario desea ver para luego 
+                // enviarlos al servidor y agregarlos al watchList.
+                var watchList = [];
+                // Subgrupo ( Neveras )
+                jQuery("button[data-grupopadre='" + jQuery(this).data("grupo") + "']").each(function(c, v) {
+
+                    // Se crea las capas de los dispositivos
+                    var dispositivo = jQuery(this).data("grupo");
+                    //Omicron.graficos.crearCapaGrupo(dispositivo);
+                    puntosDispositivo[ dispositivo ] = [];
+                    // Puntos                    
+                    jQuery("button[data-tipo='dis'][data-grupo='" + dispositivo + "']").each(function(c, v) {
+                        //Omicron.graficos.generarGrafico(jQuery(this).data("key"), jQuery(this).data("grupo"));
+                        //WatchListDwr.addToWatchList(jQuery(this).data("key"));
+                        var punto = jQuery(this).data("key");
+                        watchList.push(punto);
+                        Omicron.graficos.setLimitesPunto(punto, []);
+                        Omicron.graficos.setDatosTiempo(punto, []);
+                        puntosDispositivo[dispositivo].push(punto);
+                    });
+                    if (configDatos[dispositivo] !== undefined) {
+
+                        jQuery.tmpl(jQuery(configDatos[dispositivo].template),
+                                jQuery.extend(configDatos[dispositivo], {
+                                    "dispositivo": dispositivo
+                                })).appendTo("#vista");
+
+                    } else {
+                        // Usar template por defecto.
+                        jQuery.tmpl(jQuery("#template_default"), {
+                            "puntos": [puntosDispositivo[dispositivo][0]],
+                            "dispositivo": dispositivo
+                        }).appendTo("#vista");
+                        //console.log("El sistema selecciono automaticamente el template por defecto para el dispositivo: " + dispositivo);
+                    }
+                    Omicron.render();
+
+
+                    jQuery("#grupos").hide();
+                });
+                Omicron.graficos.renderGraficosTiempo();
+                Omicron.graficos.renderComponentes();
+                
+                clases = new Omicron.clases.view();
+                clases.render();
+                
+                puntosActuales = watchList.join(",");
+                if (puntosActuales !== null) {
+                    // Envia los puntos para agregarlos al watchList.
+                    OmicronDwr.prepararWatchList(puntosActuales);
+                    // Obtiene los limites actuales
+                    OmicronDwr.prepararLimites(puntosActuales, function(data) {
+                        limites = interpretarLimites(data);
+                        var puntosActualesCorte = puntosActuales.split(",");
+                        prepararHistorico(puntosActualesCorte, 0, "desde", null);
+                    });
+
+                }
+                Omicron.eventos.setPuntos(puntosActuales.split(","));
+
+            },
+            mouseover: function() {
+                jQuery(this).css('cursor', 'pointer');
+            }
+        });
+    };
+    /*var setPoint = function( ){
+    	jQuery("input[id*='contenido_display']").on({
+    		'dblclick' : function(){
+    			console.log('Entra');
+    		}
+    	})
+    }*/
+    
+    // Permite saber si la consulta va dirigida a obtener el ultimo valor generado por un punto
+    var prepararUltimoValor = function(punto) {
+    	try{
+    		var r = false;
+    		jQuery("*[data-ultimo-valor]").each(function() {
+    			if( parseInt(punto) === parseInt(jQuery(this).data("puntos")) ){
+    				console.log('Entraaa');
+        			r = true;
+        		}
+        	});
+        	return r;
+    	} catch( e  ) {
+    		console.log('Ocurrio un problema en prepararUltimoValor()');
+    		console.log( e );
+    	}
+    	
+    };
+    
+    var prepararHistorico = function(puntos, pos, tipo, his) {
+    	//console.log(puntos, pos, tipo, puntos[ pos ] == undefined);
+        if (puntos[ pos ] == undefined) {
+            return;
+        }
+        //console.log('Sigue');
+        
+        var dispositivo = Omicron.graficos.getIdentificarDispositivoPuntos(puntos[ pos ]);
+        if (Omicron.graficos.getGraficosTiempo()[ dispositivo[1] ] === undefined &&  dispositivo[2] == 'tiempo' ) {
+
+        	prepararHistorico(puntos, pos + 1, tipo, null);
+            return;
+        }
+        if (tipo == "desde") {
+            // Omicron.configDatos.desde[pos]
+            //var desde = jQuery("div[id='grafico_tiempo_"+ puntos[ pos ] +"']").data("desde");
+            var desde = 0;
+            desde = (desde == undefined || isNaN(desde) ? 0 : desde);
+            
+           
+            // Entra cuando el punto requiere solo consultar el ultomo valor
+            // El data de retorno del Dwr contiene el mismo formato para interpretarlo con el historico
+            /*if( prepararUltimoValor( puntos[ pos ] ) ){
+            	OmicronDwr.puntoUltimoValor(puntos[ pos ], function(data) {
+            		interpretarHistoricoDesde( data, dispositivo );
+            		//prepararHistorico(puntos, pos + 1, tipo, null);
+            	});
+            	
+            } else{*/
+            
+        	// Es usado cuando se requieren consultar datos desde un tiempo determinado 1 o n...
+        	var data = {}; 
+        	data.data = {};
+       	
+        	data.data.datos = JSON.stringify([{punto : puntos[ pos ],  historico : his}]);
+        	
+        	if( Omicron.gpsViews !== undefined && Omicron.collectionGps !== undefined ){
+
+        		Omicron.collectionGps.prepararHistoricoMapa( puntos[ pos ], data );
+        	}
+        	
+        	
+        	
+        	interpretarHistoricoDesde( data, dispositivo );
+      	
+            //}     
+            
+        }
+
+    };
+    var interpretarHistoricoDesde = function(data, dispositivo) {
+    	interpretarHistorico(data, function(punto, ultimoValor, tiempo, tiempoLimites) {
+    		
+ 		
+        	Omicron.graficos.setActualizarDisplay(punto, ultimoValor);
+        	Omicron.graficos.setActualizarEstados(punto, ultimoValor);
+        	Omicron.graficos.setActualizarBotones(punto, ultimoValor);
+        	Omicron.graficos.setActualizarLabel(punto, ultimoValor);
+            Omicron.graficos.setDatosTiempo(punto, tiempo);
+            
+            var tiempoLinea = Omicron.graficos.setPrepararLineaTiempo(punto, tiempo);
+            var tiempoLimites = Omicron.graficos.setActualizarTiempoLimites(punto, tiempo);
+            var lineasUnidas = Omicron.graficos.setUnirLineasTiempo(punto, tiempoLinea, dispositivo[1], tiempoLimites);
+            
+            var union = Omicron.graficos.setUnirLimitesLineas(lineasUnidas, tiempo, punto);
+            Omicron.graficos.setActualizarTiempo(punto, union);
+            
+            if( Omicron.dsdpCollection !== null ){
+            	var puntoModel = Omicron.dsdpCollection.where({dp : true, id_dp : parseInt( punto )});
+            	if( puntoModel.length > 0 ){
+            		puntoModel[0].set({valor : ultimoValor });
+            	}
+            }
+            
+            
+        });
+    };
+    
+    var actualizarLimites = function(tiempo) {
+        try {
+            setInterval(function() {
+                if (puntosActuales !== null) {
+                    OmicronDwr.prepararLimites(puntosActuales, function(data) {
+                        limites = interpretarLimites(data);
+                    });
+                }
+
+            }, 5000);
+        } catch (e) {
+            console.log("Ocurrio un error actualizando los limites");
+            console.log(e);
+        }
+
+    };
+    var interpretarHistorico = function(data, call) {
+        try {
+        	
+            var tiempo = [], r = [];
+            var historico = jQuery.parseJSON(data.data.datos);
+            
+ 
+            for (var puntos in historico) {
+                var punto = historico[ puntos ].punto;
+                // ultimoValor Contiene el valor del ultimo dato registro para un punto
+                var tiempoLimites = [], ultimoValor = null;
+                for (var l in historico[ puntos ].historico) {
+                	//console.log('Milisegundos', historico[ puntos ].historico[ l ].tiempo);
+                    var fecha = new Date(historico[ puntos ].historico[ l ].tiempo);
+                    //console.log('Fecha y hora 1', fecha, fecha.getHours());
+                    var time = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), fecha.getHours() , fecha.getMinutes(), fecha.getSeconds());
+                    //console.log('Otro time', time);
+                    tiempo.push([time.getTime(), historico[ puntos ].historico[ l ].valor]);
+                    tiempoLimites.push(Omicron.graficos.setActualizarTiempoLimites(punto, time.getTime()));
+
+                    ultimoValor = historico[ puntos ].historico[ l ].valor;
+
+                }
+                
+                if (historico.length === 1) {
+                	call(punto, ultimoValor, tiempo, tiempoLimites);
+                    tiempo = [];
+                } else if(historico.length > 1){
+                    r.push([punto, ultimoValor, tiempo, tiempoLimites]);
+                    tiempo = [];
+                }
+
+            }
+            
+            if (historico.length > 1) {
+                call(r);
+                tiempo = [], r = [];
+            }
+        }
+        catch (e) {
+            console.log("Ocurrio un problema interpretando los historicos");
+            console.log(e);
+        }
+
+    };
+    
+    // Usada para identificar si hay limites que existen pero que no deben ser graficados.
+    var limitesExcluidos = function() {
+    	var no_limitar = [];
+    	jQuery("div[data-clase='tiempo']").each(function() {
+    		if( jQuery(this).data('nolimitar') !== undefined ) {
+    			no_limitar = no_limitar.concat( jQuery(this).data('nolimitar') );
+    		}
+    	});
+    	return no_limitar;
+    	
+    };
+
+    var interpretarLimites = function(data) {
+    	limites = jQuery.parseJSON(data.data.limites);
+        var r = {}, excluidos = limitesExcluidos();;
+        if (limites != undefined) {
+            for (var n in limites.limites) {
+            	if( excluidos.indexOf( limites.limites[ n ].xid ) !== -1 ){
+            		continue;
+            	}
+            	
+                if (!jQuery.isArray(r[ limites.limites[ n ].punto ])) {
+                    r[ limites.limites[ n ].punto ] = [];
+                }
+                r[ limites.limites[ n ].punto ].push({
+                    "alias": limites.limites[ n ].alias
+                });
+                r[ limites.limites[ n ].punto ].push({
+                    "valor": limites.limites[ n ].valor
+                });
+            }
+        }
+        return r;
+    };
+    var eventoGrupo1 = function() {
+        jQuery("#migaGrupoRoot").bind("click", function() {
+            Omicron.eventos.identificarPuntosActivos();
+            jQuery("#grupos > div").addClass("ui-screen-hidden");
+            // Muestro los grupos
+            jQuery("div[data-disgrupo='undefined']").removeClass("ui-screen-hidden");
+
+            // Oculto las migas siguientes
+            jQuery("#migaDivGrupo").addClass("ui-screen-hidden");
+            jQuery("#migaDivDispositivo").addClass("ui-screen-hidden");
+
+            // Muestros los grupos
+            jQuery("#grupos").show();
+
+            // Oculto la vista
+            jQuery("#vista").html("");
+
+            Omicron.eventos.identificarPuntosActivos();
+
+        });
+    };
+    var eventoDispositivo = function() {
+        jQuery("#migaGrupo").bind("click", function(c, v) {
+
+            jQuery("#migaDivDispositivo").addClass("ui-screen-hidden");
+            jQuery("div[data-disgrupo='" + jQuery(this).data("grupo") + "']").removeClass("ui-screen-hidden");
+
+            // Muestros los grupos
+            jQuery("#grupos").show();
+
+            // Oculto la vista
+            jQuery("#vista").html("");
+
+
+
+            Omicron.eventos.identificarPuntosActivos();
+        });
+    };
+    var alarmas = function(datos) {
+        jQuery("#alarmas").html(datos);
+        jQuery("#alarmas > table").css("width", "100%");
+    };
+    var eventosHtml = function(){
+    	jQuery("#vista").on('keypress change',"input:not([readonly])[id*='contenido_display']", function(e){
+    		
+    		
+    		var display = jQuery(this);
+    		var id = jQuery(this).attr('id').split("_")[2];
+    		
+    		
+    		if( display.data('publicador') ){
+    			OmicronReporteDatosDwr.save(-1, id,-1, jQuery(this).val(), 
+    					display.data('publicadorId'), display.data('publicadorVariable'), function(data) {
+						console.log('Respuesta', data);						
+				});
+    			return;
+    		}
+    		
+    		//if( display.attr("type") == "number" )
+    		// 13 -> ENTER
+    		if( e.which == 13 || display.attr("type") == "number" ){
+    			
+        		        		
+        		DataPointDetailsDwr.setPoint(id, id, jQuery(this).val(), function(data) {
+        			if( data ) {
+        				if( display.data('punto-cambiar-valor') !== undefined ){
+	        				var puntoModel = Omicron.dsdpCollection.where({"xid" : display.data('punto-cambiar-valor'), dp : true});
+	        				if( puntoModel.length > 0 ){
+	        					var puntoId = puntoModel[ 0 ].get('id_dp');
+	        					DataPointDetailsDwr.setPoint(puntoId, puntoId, display.data('punto-nuevo-valor'), function(data) {
+	        						        						
+	        					});
+	        				}
+        				}
+        				
+        			}
+            	});    			
+    		}
+    		
+    	});
+    	
+    };
+
+
+
+    return {
+        init: function(estructura, config) {
+            estructuraGeneral = estructura;
+            configDatos = config;
+            
+            if( USAR_JERARQUIA ){
+            	jQuery("#grupos").html(pointFolder(estructura));
+            	Omicron.eventosMenu();
+            }
+            
+        },
+        eventosHtml : function() {
+        	eventosHtml();
+        },
+        setLimiteEventos: function(limite) {
+            limiteEventos = limite;
+        },
+        getLimiteEventos: function( ) {
+            return limiteEventos;
+        },
+        eventosMenu: function() {
+            eventoGrupo1();
+            eventoDispositivo();
+            eventoGrupo();
+        },
+        datosGraficos: function() {
+            return datosGraficos;
+        },
+        setDatosGraficos : function(data) {
+        	datosGraficos.push(data);
+        },
+        tiposGraficos: function() {
+            return tiposGraficos;
+        },
+        dispoGrupos: function() {
+            return dispoGrupos;
+        },
+        labelsControles: function() {
+            return labelsControles;
+        },
+        setLabelsControles : function(punto, data){
+        	labelsControles[ punto ] = data;
+        },
+        alarmas: function(datos) {
+            return alarmas(datos);
+        },
+        setLimites: function(limit) {
+            limites = limit;
+        },
+        getLimites: function() {
+            return limites;
+        },
+        getPuntosActuales: function() {
+            return puntosActuales;
+        },
+        setPuntosActuales: function(puntos) {
+            puntosActuales = puntos;
+        },
+        actualizarLimites: function(tiempo) {
+            actualizarLimites(tiempo);
+        },
+        interpretarHistorico: function(data, call) {
+            interpretarHistorico(data, function(punto, ultimoValor, tiempo, tiempoLimites) {
+                call(punto, ultimoValor, tiempo, tiempoLimites);
+            });
+        },
+        getPuntosDispositivo: function() {
+            return puntosDispositivo;
+        },
+        ajaxStartStop: function() {
+            // TODO OMICRON: No captura el evento.
+            jQuery("#omicron").ajaxStart(function() {
+                jQuery("#ajax_start").show();
+            });
+            jQuery(document).ajaxStop(function() {
+                jQuery("#ajax_start").hide();
+            });
+        },
+        resizeWidth: function(call) {
+            jQuery(window).resize(function() {
+            	//call();
+            });
+        },
+        render: function() {
+            jQuery("#omicron").trigger("create");
+        },
+        noty : function(extend) {
+        	extend || ( extend = {} );
+            var config = {
+                "text": "",
+                "layout":"topCenter",
+                "type":"success",
+                "animateOpen":{
+                    "height":"toggle"
+                },
+                "animateClose":{
+                    "height":"toggle"
+                },
+                "maxVisible" : 3,
+                "speed":500,
+                "timeout":8000,
+                "closeButton":false,
+                "closeOnSelfClick":true,
+                "closeOnSelfOver":false,
+                "modal":false,
+            };
+            jQuery.extend( config, extend );
+            //var id = jQuery(".noty_eventos").noty(config);
+            var id = noty(config);
+            
+            return id;
+        },
+        cargando : function(msj, extend){
+        	var m = msj || 'Cargando...';
+        	extend || ( extend = {} );
+        	
+        	var config = {'text' : m, 
+        			'type' : 'information', 'layout' : 'topRight', 'maxVisible' : 1, 'timeout' : false};
+        	
+        	jQuery.extend( config, extend );
+        	
+        	cargandoNotyId.push(Omicron.noty( config ));
+        },
+        fin_cargando : function(){
+        	for(n in cargandoNotyId){
+        		cargandoNotyId[ n ].close();
+        	}  
+        	cargandoNotyId = [];
+        },
+        
+        getColoresLienas : function() {
+        	return coloresLienas ;	
+        },
+        popupReposition : function(id){
+        	jQuery(id).popup("reposition", {positionTo: 'origin'});
+        },
+        actualizarImagenSonido : function(estado) {
+        	is_muted = estado;
+        	var $estado = jQuery("#activarDesativarSonido");
+        	if(estado){
+        		$estado.attr('src', 'omicron/images/Audio-volume-muted.png');
+        		$estado.attr('title', 'Activar Alarmas');
+        		Omicron.eventos.getApagarTodosLosSonidos();
+        	} else{
+        		$estado.attr('src', 'omicron/images/Audio-volume-medium.png');
+        		$estado.attr('title', 'Desactivar Alarmas');
+        	}
+        },
+        getIsMuted : function() {
+        	return is_muted;
+        },
+        setAnio : function(a) {
+        	anio = a;
+        },
+        getAnio : function() {
+        	return anio;
+        },
+        setMes : function(m) {
+        	mes = m;
+        },
+        getMes : function() {
+        	return mes;
+        },
+        setDia : function(d) {
+        	dia = d;
+        },
+        getDia : function() {
+        	return dia;
+        },
+        setZonaHoraria : function(z) {
+        	zonaHoraria = z;
+        },
+        getZonaHoraria : function() {
+        	return zonaHoraria;
+        },
+        getClaseView : function() {
+        	return clases;
+        },
+        setInterpretarLimites : function(data){
+        	return interpretarLimites(data)
+        },
+        setPrepararHistorico : function(puntos, pos, tipo, his){
+        	return prepararHistorico(puntos, pos, tipo, his);
+        },
+        setPuntosDesde : function(punto, desde){
+        	puntosDesde[ punto ] = desde;
+        },
+        getPuntosDesde : function(punto, busquedaEnArray){
+        	if( busquedaEnArray ){
+        		for( var n in puntosDesde   ){
+        			
+        			if( n.indexOf( punto[ 0 ] ) !== -1 ){
+        				return puntosDesde[ n ];
+        			}
+        		}
+        	}
+        	
+        	return puntosDesde[ punto ];
+        	
+        	
+        },
+        verificarClave : function( datos, clave ) {
+        	console.log('Test', datos, clave);
+        	
+        	
+        	
+        	if( datos.hasOwnProperty( clave ) ){
+        		if( datos[ clave ] != '' ){
+        			return true;
+        		}
+        	}
+        	
+        	return false
+        }
+        
+        
+        
+
+
+    };
+
+})();

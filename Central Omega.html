@@ -1,0 +1,227 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<!-- saved from url=(0035)login.htm -->
+<html class="ui-mobile"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="login.htm">--><base href=".">
+  <title>Relatech SCADA access</title>
+  
+  <!-- Meta -->
+  <meta name="viewport" content="width=device-width, initial-scale=1"> 
+  
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta name="Copyright" content="ScadaBR ©©2009-2011 Fundação Certi, MCA Sistemas, Unis Sistemas, Conetec, Todos os direitos reservados.">
+  <meta name="DESCRIPTION" content="ScadaBR Software">
+  <meta name="KEYWORDS" content="ScadaBR Software">
+  
+  <!-- Style -->
+  <link rel="icon" href="./Central Omega_files/images/favicon.ico">
+  <link rel="shortcut icon" href="./Central Omega_files/images/favicon.ico">
+  
+  
+  <!-- Scripts -->
+  
+  <script src="./Central Omega_files/omicron.js.download"></script>
+  <script src="./Central Omega_files/omicron.graficos.js.download"></script>
+  <!--<script src="omicron/omicron.limites.js"></script>-->
+  <script src="./Central Omega_files/omicron.navegacion.js.download"></script>
+  <script src="./Central Omega_files/omicron.tiempo.js.download"></script>
+  <script src="./Central Omega_files/omicron.eventos.js.download"></script>
+  
+  
+  
+  
+  <script type="text/javascript">var djConfig = { isDebug: false, extraLocale: ['en-us', 'nl', 'nl-nl', 'ja-jp', 'fi-fi', 'sv-se', 'zh-cn', 'zh-tw','xx'] };</script>
+  <!-- script type="text/javascript" src="http://o.aolcdn.com/dojo/0.4.2/dojo.js"></script -->
+  <script type="text/javascript" src="./Central Omega_files/dojo.js.download"></script><style type="text/css">.dojoLayoutContainer{ position: relative; display: block; overflow: hidden; }
+body .dojoAlignTop, body .dojoAlignBottom, body .dojoAlignLeft, body .dojoAlignRight { position: absolute; overflow: hidden; }
+body .dojoAlignClient { position: absolute }
+.dojoAlignClient { overflow: auto; }
+</style>
+  <script type="text/javascript" src="./Central Omega_files/engine.js.download"></script>
+  <script type="text/javascript" src="./Central Omega_files/util.js.download"></script>
+  <script type="text/javascript" src="./Central Omega_files/MiscDwr.js.download"></script>
+  <script type="text/javascript" src="./Central Omega_files/soundmanager2-nodebug-jsmin.js.download"></script>
+  <script type="text/javascript" src="./Central Omega_files/common.js.download"></script>
+  
+  
+  <script type="text/javascript">
+    mango.i18n = function() {return {'common.alarmLevel.lifeSafety':"Riesgo a la vida",'common.disabled':"Deshabilitado",'header.mute':"Silenciar",'header.unmute':"Activar sonido",'common.alarmLevel.critical':"Cr\u00EDtico",'js.help.loading':"Cargando...",'js.help.related':"Items relacionados",'js.disabledCed':"Deshabilitado el detector de eventos compuestos",'js.help.lastUpdated':"Ultima actualizaci\u00F3n",'js.email.addAddress':"Agregar direcci\u00F3n",'js.disabledSe':"Deshabilitado el planificador de eventos",'scheduledEvents.se':"Evento programado",'js.help.error':"Error",'js.email.addUser':"Agregar Usuario",'js.email.addMailingList':"Agregar lista de correo",'js.email.noRecipForEmail':"No hay destinatarios para enviarles el correo de prueba",'common.access.set':"Modificar",'common.access.read':"Lectura",'common.sendTestEmail':"Enviar correo de prueba",'pointLinks.pointLink':"Enlace de puntos",'js.disabledPointLink':"Deshabilitado el enlace a punto",'compoundDetectors.compoundEventDetector':"Detector de evento compuesto",'common.disabledToggle':"Deshabilitado - Haga clic para habilitar",'common.alarmLevel.none':"Ninguno",'common.administrator':"Administrador",'common.enabledToggle':"Habilitado - Haga clic para deshabilitar",'common.alarmLevel.urgent':"Urgente",'common.minimize':"Minimizar",'js.email.noRecipients':"Sin destinatarios",'common.user':"Usuario",'events.silence':"Silenciar",'js.email.testSent':"El correo de prueba fue enviado",'common.maximize':"Maximizar",'events.unsilence':"Activar sonido",'common.alarmLevel.info':"Informaci\u00F3n"};}();
+  </script>
+  
+    <script type="text/javascript" src="./Central Omega_files/header.js.download"></script>
+    <script type="text/javascript">
+      dwr.util.setEscapeHtml(false);
+      
+      
+      
+      function setLocale(locale) {
+          MiscDwr.setLocale(locale, function() { window.location = window.location });
+      }
+      
+      function setHomeUrl() {
+          MiscDwr.setHomeUrl(window.location.href, function() { alert("Home URL saved"); });
+      }
+      
+      function goHomeUrl() {
+          MiscDwr.getHomeUrl(function(loc) { window.location = loc; });
+      }
+    </script>
+  
+</head>
+
+<body style="">
+<table width="100%" cellspacing="0" cellpadding="0" border="0" id="mainHeader" style="display:none">
+  <tbody><tr>
+    <td><img src="./Central Omega_files/scadabrLogoMed.png" alt="Logo"></td>
+    
+      <td align="center" width="99%" id="eventsRow">
+        <a href="events.shtm">
+          <span id="__header__alarmLevelDiv" style="display:none;">
+            <img id="__header__alarmLevelImg" src="./Central Omega_files/spacer.gif" alt="" border="0" title="">
+            <span id="__header__alarmLevelText"></span>
+          </span>
+        </a>
+      </td>
+    
+    
+      <td align="right" valign="bottom" class="projectTitle" style="padding:5px; white-space: nowrap;">Relatech SCADA</td>
+    
+  </tr>
+</tbody></table>
+
+
+  <table width="100%" cellspacing="0" cellpadding="0" border="0" id="subHeader" style="display:none">
+    <tbody><tr>
+      <td style="cursor:default">
+        
+        
+          <a href="login.htm"><img src="./Central Omega_files/control_play_blue.png" onmouseover="if (typeof hMD == &#39;function&#39;) hMD(&#39;Iniciar Sesión&#39;, this);" onmouseout="if (typeof hMD == &#39;function&#39;) hMD();" border="0"></a>
+        
+        <div id="headerMenuDescription" class="labelDiv" style="position:absolute;display:none;"></div>
+      </td>
+      
+      <td align="right">
+        
+        <div style="display:inline;" onmouseover="showMenu(&#39;localeEdit&#39;, -40, 10);">
+          <img src="./Central Omega_files/world.png" alt="Language" title="Language" border="0">
+          <div id="localeEdit" style="visibility:hidden;left:0px;top:15px;" class="labelDiv" onmouseout="hideLayer(this)">
+            
+              <a class="ptr" onclick="setLocale(&#39;de&#39;)">Deutsch</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;ru&#39;)">Руссиан</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;fi&#39;)">Suomi</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;pt&#39;)">Português</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;en&#39;)">English</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;fr&#39;)">Francais</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;zh&#39;)">中文</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;nl&#39;)">Nederlands</a><br>
+            
+              <a class="ptr" onclick="setLocale(&#39;es&#39;)">Español</a><br>
+            
+          </div>
+        </div>
+      </td>
+    </tr>
+  </tbody></table>
+
+
+<div style="padding:5px;" class="ui-mobile-viewport ui-overlay-c">
+  
+    <script type="text/javascript">
+    	// Estado anterior, se cambia para que no salgan mensajes de abvertencias
+    	// compatible = false;
+        compatible = true;
+     
+        function setFocus() {
+            $("username").focus();
+            BrowserDetect.init();
+          
+            $set("browser", BrowserDetect.browser +" "+ BrowserDetect.version +" para "+ BrowserDetect.OS);
+        
+            if (checkCombo(BrowserDetect.browser, BrowserDetect.version, BrowserDetect.OS)) {
+                $("browserImg").src = "images/accept.png";
+                show("okMsg");
+                compatible = true;
+            }
+            else {
+                $("browserImg").src = "images/thumb_down.png";
+                show("warnMsg");
+            }
+        }
+    
+        function nag() {
+            if (!  compatible)
+                alert('NOTA: Error  ');
+        }
+    </script>
+    <link rel="stylesheet" href="./Central Omega_files/jquery.mobile.min.css">
+    <link rel="stylesheet" href="./Central Omega_files/login.css">
+    <script src="./Central Omega_files/jquery.js.download"></script>
+    <script type="text/javascript">
+        jQuery = $.noConflict(true);
+        jQuery("#omicron").trigger("create")
+    </script> 
+    <script src="./Central Omega_files/jquery.mobile-1.3.2.min.js.download" type="text/javascript"></script>    
+
+    <div data-role="page" id="omicron" data-title="Central Omega" data-url="omicron" tabindex="0" class="ui-page ui-body-c ui-page-active" style="min-height: 881px;">
+    	<div>
+        <div data-role="header" data-theme="c" class="ui-header ui-bar-c" role="banner">
+            <img src="./Central Omega_files/logo.svg" style="width:310px;height:75px;">
+        </div>
+        <div data-role="content" id="contenido" class="ui-content" role="main">
+            <form action="login.htm" method="post" onclick="nag()" data-ajax="false">
+                <div style="padding:10px 20px;">
+                    <!--<img src="omicron/logo_omicron.png" />-->
+                    
+                        <label for="un" class="ui-hidden-accessible">User</label>
+                        <div class="ui-input-text ui-shadow-inset ui-corner-all ui-btn-shadow ui-body-b"><input type="text" name="username" id="username" value="" placeholder="User:" data-theme="b" class="ui-input-text ui-body-b"></div>
+                    
+                    
+                        <label for="pw" class="ui-hidden-accessible">Password</label>
+                        <div class="ui-input-text ui-shadow-inset ui-corner-all ui-btn-shadow ui-body-b"><input type="password" name="password" id="password" value="" placeholder="Password" data-theme="b" class="ui-input-text ui-body-b"></div>
+                    
+                    <div data-corners="true" data-shadow="true" data-iconshadow="true" data-wrapperels="span" data-theme="b" data-disabled="false" class="ui-submit ui-btn ui-btn-up-b ui-shadow ui-btn-corner-all" aria-disabled="false">
+                        
+                      <input type="submit" data-theme="b" value="Enter" class="ui-btn-hidden" data-disabled="false">
+                  </div>
+
+                    
+                        
+                    
+                    <!-- Estado anterior, se cambia para que no salgan mensajes de abvertencias  -->
+                    <div style="display:none">                    
+                    <img id="browserImg" src="./Central Omega_files/magnifier.png" style="display:none">
+                    <span id="browser"> Checking browser compatibility...</span>,
+                    <span id="okMsg" style="display:none">This browser is not supported.</span>
+                    <span id="warnMsg" style="display:none">Not supported download: <a href="http://www.mozilla.com/" target="_blank" class="ui-link">Firefox</a>, Chrome, o Internet Explorer 7.</span>
+                    <img src="./Central Omega_files/help.png" alt="Ayuda" title="Ayuda" class="ptr" onclick="help(&#39;welcomeToMango&#39;, this);" style="display:inline" border="0">
+                    </div>
+                </div>
+            </form>
+
+        </div>
+        </div>
+		<div data-role="footer" data-theme="c" style="text-align: center" id="footer" class="ui-footer ui-bar-c" role="contentinfo">
+            <br>
+            <span>©2022 Relatech S.p.A. P.IVA 03267710964  |  Based on ScadaBR - 1.0 CE GPL 3 </span>
+            <br><br>
+        </div>
+        
+
+
+
+</div>
+<table width="100%" cellspacing="0" cellpadding="0" border="0" id="table_footer" style="display:none">
+  <tbody><tr><td colspan="2">&nbsp;</td></tr>
+  <tr>
+    <td colspan="2" class="footer" align="center">©2022 Relatech S.p.A. P.IVA 03267710964 |  Based on ScadaBR - 1.0 CE GPL 3 </td>
+  </tr>
+</tbody></table>
+
+
+
+<div class="ui-loader ui-corner-all ui-body-a ui-loader-default"><span class="ui-icon ui-icon-loading"></span><h1>loading</h1></div></div><div id="sm2-container" class="movieContainer" style="position: fixed; width: 8px; height: 8px; bottom: 0px; left: 0px; z-index: -1;"><embed name="sm2movie" id="sm2movie" src="./soundmanager2.swf" width="100%" height="100%" quality="high" allowscriptaccess="always" bgcolor="#ffffff" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" wmode="transparent"></div><div id="soundmanager-debug" style="display: none;"></div></body></html>

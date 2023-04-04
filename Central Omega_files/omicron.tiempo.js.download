@@ -1,0 +1,69 @@
+Omicron.tiempo = {};
+
+Omicron.tiempo = (function(){
+    
+    var fechas = function(tipo, milisegundos) {
+        return "Test";
+    };
+    // Permite interpretar una fecha por ejemplo 2013/07/11 9:00:00
+    // Parte la fecha pasada como parametro en fecha y hora y retorna
+    // un arreglo.
+    var interpretarFecha = function(fecha){
+    	try{
+    		var fecha_hora = fecha.split(" "), fecha = null, hora = null;
+            fecha = fecha_hora[0].split("/");
+            hora = fecha_hora[1].split(":");
+            
+            anio = fecha[0] == undefined ? 0 :  fecha[0];
+            mes = fecha[1] == undefined ? 0 :  fecha[1] -1;
+            dia = fecha[ 2 ] == undefined ? 0 :  fecha[ 2 ];
+            
+            horas = hora[ 0 ] == undefined ? 0 :  hora[ 0 ];
+            minutos = hora[ 1 ] == undefined ? 0 :  hora[ 1 ];            
+            segundos =  hora[ 2 ] == undefined ? 0 :  hora[ 2 ];
+            
+            return new Date(anio, mes, dia, horas, minutos, segundos);
+    	} catch( e  ) {
+    		console.log( "Ocurrio un error interpretando la fecha/hora");
+    		console.log( e );
+    	}
+        
+        
+    };
+    var asignarFechaYHoraDateTimePicker = function(id, milisegundos) {
+    	var f = new Date( milisegundos );
+    	jQuery(id).val(f.getFullYear() +"/"+ ( parseInt(f.getMonth()) + 1) + "/" + f.getDate() + " " + f.getHours() + ":" + f.getMinutes()  + ":" + f.getSeconds() );
+    };
+    var datetimepicker = function(id, op2){
+    	var op = {
+            	lang : 'es', 
+                i18n:{
+                    de:{
+                        months:[
+                        'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto',
+                        'Septiembre','Octubre','Noviembre','Diciembre'],
+                        dayOfWeek:["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"]
+                    }
+                }
+                
+        };
+    	
+    	jQuery.extend( op, op2 );
+        jQuery(id).datetimepicker(op);
+    };
+    
+    return  {
+        restarAFechaActual : function(milisegundos){
+            return fechas("restarAFechaActual", milisegundos);
+        },
+        interpretarFecha : function(fecha ){
+            return interpretarFecha(fecha);
+        },
+        datetimepicker : function(id, op2){
+            datetimepicker(id, op2);
+        },
+        asignarFechaYHoraDateTimePicker : function(id, milisegundos) {
+        	asignarFechaYHoraDateTimePicker(id, milisegundos);
+        }
+    };
+})();

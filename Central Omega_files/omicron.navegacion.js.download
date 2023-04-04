@@ -1,0 +1,98 @@
+Omicron.navegacion = {}
+
+Omicron.navegacion = function() {
+    
+    // Almacena los labels de los controles.
+    var labelsControles = {};
+    var elementoInicial = false;
+    var botonInicio = null;
+    
+    var generarCabecera = function(){
+        var html = '<div data-role="popup" id="popupNested" data-theme="none">' +
+        '<div data-role="collapsible-set" data-theme="b" data-content-theme="c" data-collapsed-icon="arrow-r" data-expanded-icon="arrow-d" style="margin:0; width:500px;">';
+        return html;
+    }
+    var generarFooter = function(){
+        var html = '</div></div>';
+        return html;
+    }
+    var boton = function(v) {
+        var html = '<a href="#popupNested" data-rel="popup" data-role="button" '+
+        'data-inline="true" data-icon="bars" data-theme="b" ' 
+        + 'data-transition="pop">'+ v.name +'</a>';
+        console.log("Entra", botonInicio);
+        jQuery(botonInicio).html( html );
+    }
+    var generarSubFolders = function( folders ) {
+        try{
+            if( folders == undefined ){
+                return '';
+            }
+            var html = '';
+            jQuery.each(folders, function(c, v) {
+                if( v.name == undefined ){
+                    return '';
+                }
+                console.log( v.name );
+                //html += '<li data-grupo="'+ v.id +'" data-tipo="gru">(Grupo) '+ v.name +'</li>';
+                //var puntos = generarPoints(v.points, v.id);
+                //var folders = generarSubFolders(v.subfolders)
+                // Evita que se cree el grupo Root que crea por defecto Scadabr
+                if( v.id != 0 ){
+                    if( ! elementoInicial ) {
+                        boton(v);
+                        elementoInicial = true
+                    } else{
+                        html += '<div data-role="collapsible" data-inset="false">'+
+                        '<h2>'+ v.name +'</h2><ul data-role="listview"></ul></div>';
+                    }
+                } else{
+                    console.log("Entra");
+                    generarSubFolders(v.subfolders);
+                }
+                
+                
+            })
+            return html;
+        } catch( e ) {
+            console.log("Ocurrio un error generando Subfolders");
+            console.log( e );
+            return '';
+        }
+    }
+    var generarPoints = function( points, grupo ) {
+        try{
+            var html = '';
+            jQuery.each( points, function( c, v ){
+                if(v.value == undefined) {
+                    return '';
+                }
+                labelsControles[ v.key ] = v.value;
+                html += '<li data-key="'+ v.key +'" data-tipo="dis" data-grupo="'+ grupo +'">(Dispositivo) '+ v.value +'</li>';
+            //asignarDispositivoAGrupo(v.key, grupo);
+            } )
+            return '<ul>'+ html +'</ul>';            
+        } catch( e )  {
+            console.log("Ocurrio un error generando Points");
+            console.log( e );
+            return '';
+        }
+    }
+    
+    
+    return {
+        init : function( datos, donde, boton ) {
+            botonInicio = boton;
+            var cabecera = generarCabecera()
+            ,footer = generarFooter()
+            ,navegacion = generarSubFolders(datos);
+                
+            jQuery(donde).html( cabecera + navegacion + footer );
+            
+        }
+    }
+    
+}
+
+
+
